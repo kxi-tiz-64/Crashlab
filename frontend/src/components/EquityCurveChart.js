@@ -36,7 +36,15 @@ function EquityCurveChart({ data }) {
         label: 'Equity',
         data: equities,
         borderColor: 'rgb(40, 167, 69)',
-        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+        backgroundColor: (ctx) => {
+          const chart = ctx.chart;
+          const area = chart.chartArea;
+          if (!area) return 'rgba(40, 167, 69, 0.15)';
+          const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+          gradient.addColorStop(0, 'rgba(40, 167, 69, 0.35)');
+          gradient.addColorStop(1, 'rgba(40, 167, 69, 0.02)');
+          return gradient;
+        },
         borderWidth: 2,
         pointRadius: 0,
         tension: 0.1,
@@ -61,7 +69,7 @@ function EquityCurveChart({ data }) {
         intersect: false,
         callbacks: {
           label: function(context) {
-            return `Equity: ₹${context.parsed.y.toLocaleString()}`;
+            return `Equity: Rs.${context.parsed.y.toLocaleString()}`;
           },
         },
       },
@@ -82,11 +90,11 @@ function EquityCurveChart({ data }) {
         display: true,
         title: {
           display: true,
-          text: 'Equity (₹)',
+          text: 'Equity (Rs.)',
         },
         ticks: {
           callback: function(value) {
-            return '₹' + value.toLocaleString();
+            return 'Rs.' + value.toLocaleString();
           },
         },
       },
@@ -96,6 +104,7 @@ function EquityCurveChart({ data }) {
       axis: 'x',
       intersect: false,
     },
+    animation: { duration: 800, easing: 'easeOutQuart' },
   };
 
   return (

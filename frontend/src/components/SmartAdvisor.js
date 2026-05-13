@@ -56,14 +56,12 @@ function SmartAdvisor({ simulationData, attackConfig, onStrategySuggestion }) {
   if (loading && !analysis) {
     return (
       <div style={{
-        backgroundColor: '#fff',
         borderRadius: '8px',
         padding: '20px',
         textAlign: 'center',
-        color: '#666',
         marginBottom: '20px'
-      }}>
-        Analyzing simulation...
+      }} className="bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-700">
+        Analyzing with AI...
       </div>
     );
   }
@@ -77,12 +75,11 @@ function SmartAdvisor({ simulationData, attackConfig, onStrategySuggestion }) {
 
   return (
     <div style={{
-      backgroundColor: '#fff',
       borderRadius: '8px',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
       marginBottom: '20px',
       overflow: 'hidden'
-    }}>
+    }} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 transition-colors">
       <div 
         style={{
           backgroundColor: '#007bff',
@@ -96,7 +93,7 @@ function SmartAdvisor({ simulationData, attackConfig, onStrategySuggestion }) {
         onClick={() => setExpanded(!expanded)}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '24px' }}>🤖</span>
+          <span style={{ fontSize: '24px' }}>[AI]</span>
           <div>
             <div style={{ fontWeight: 'bold', fontSize: '16px' }}>AI Smart Advisor</div>
             <div style={{ fontSize: '12px', opacity: 0.9 }}>Click to {expanded ? 'collapse' : 'expand'}</div>
@@ -116,41 +113,39 @@ function SmartAdvisor({ simulationData, attackConfig, onStrategySuggestion }) {
       {expanded && (
         <div style={{ padding: '20px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '20px' }}>Analyzing...</div>
+            <div style={{ textAlign: 'center', padding: '20px' }} className="text-slate-500 dark:text-slate-400">Analyzing...</div>
           ) : (
             <>
               {/* Summary */}
               <div style={{ marginBottom: '20px' }}>
-                <h4 style={{ marginBottom: '10px', color: '#333' }}>📊 Simulation Summary</h4>
+                <h4 style={{ marginBottom: '10px' }} className="text-slate-800 dark:text-white">[Chart] Simulation Summary</h4>
                 <div style={{
-                  backgroundColor: '#f8f9fa',
                   padding: '15px',
                   borderRadius: '6px',
                   lineHeight: '1.6',
-                  color: '#555'
-                }}>
+                }} className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-300">
                   {analysis.summary}
                 </div>
               </div>
 
               {/* Key Metrics */}
               <div style={{ marginBottom: '20px' }}>
-                <h4 style={{ marginBottom: '10px', color: '#333' }}>📈 Key Metrics</h4>
+                <h4 style={{ marginBottom: '10px' }} className="text-slate-800 dark:text-white">[Trend] Key Metrics</h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
-                  <div style={{ padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-                    <div style={{ fontSize: '11px', color: '#666' }}>Max Price Deviation</div>
+                  <div style={{ padding: '10px', borderRadius: '4px' }} className="bg-slate-50 dark:bg-slate-900/50">
+                    <div style={{ fontSize: '11px' }} className="text-slate-500 dark:text-slate-400">Max Price Deviation</div>
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#dc3545' }}>
                       {analysis.metrics.max_price_deviation.toFixed(2)}%
                     </div>
                   </div>
-                  <div style={{ padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-                    <div style={{ fontSize: '11px', color: '#666' }}>Volatility Change</div>
+                  <div style={{ padding: '10px', borderRadius: '4px' }} className="bg-slate-50 dark:bg-slate-900/50">
+                    <div style={{ fontSize: '11px' }} className="text-slate-500 dark:text-slate-400">Volatility Change</div>
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#ffc107' }}>
                       {analysis.metrics.volatility_change.toFixed(1)}%
                     </div>
                   </div>
-                  <div style={{ padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-                    <div style={{ fontSize: '11px', color: '#666' }}>Modified Points</div>
+                  <div style={{ padding: '10px', borderRadius: '4px' }} className="bg-slate-50 dark:bg-slate-900/50">
+                    <div style={{ fontSize: '11px' }} className="text-slate-500 dark:text-slate-400">Modified Points</div>
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#007bff' }}>
                       {analysis.metrics.modified_points} / {analysis.metrics.total_points}
                     </div>
@@ -161,31 +156,32 @@ function SmartAdvisor({ simulationData, attackConfig, onStrategySuggestion }) {
               {/* Recommendations */}
               {analysis.recommendations && analysis.recommendations.length > 0 && (
                 <div style={{ marginBottom: '20px' }}>
-                  <h4 style={{ marginBottom: '10px', color: '#333' }}>💡 Recommendations</h4>
+                  <h4 style={{ marginBottom: '10px' }} className="text-slate-800 dark:text-white">[Tip] Recommendations</h4>
                   {analysis.recommendations.map((rec, idx) => (
                     <div
                       key={idx}
                       style={{
                         padding: '12px',
                         marginBottom: '8px',
-                        backgroundColor: rec.type === 'warning' ? '#fff3cd' : 
-                                        rec.type === 'suggestion' ? '#d1ecf1' : '#f8f9fa',
                         borderLeft: `4px solid ${
                           rec.type === 'warning' ? '#ffc107' : 
                           rec.type === 'suggestion' ? '#17a2b8' : '#6c757d'
                         }`,
                         borderRadius: '4px'
                       }}
+                      className={rec.type === 'warning' ? 'bg-amber-50 dark:bg-amber-950/20' : 
+                                 rec.type === 'suggestion' ? 'bg-cyan-50 dark:bg-cyan-950/20' : 
+                                 'bg-slate-50 dark:bg-slate-900/50'}
                     >
-                      <div style={{ fontWeight: 'bold', marginBottom: '5px', color: '#333' }}>
-                        {rec.type === 'warning' ? '⚠️' : rec.type === 'suggestion' ? '💡' : 'ℹ️'} {rec.title}
+                      <div style={{ fontWeight: 'bold', marginBottom: '5px' }} className="text-slate-800 dark:text-slate-200">
+                        {rec.type === 'warning' ? 'Warning:' : rec.type === 'suggestion' ? 'Tip:' : 'Info:'} {rec.title}
                       </div>
-                      <div style={{ fontSize: '14px', color: '#555', marginBottom: '5px' }}>
+                      <div style={{ fontSize: '14px', marginBottom: '5px' }} className="text-slate-600 dark:text-slate-400">
                         {rec.message}
                       </div>
                       {rec.action && (
                         <div style={{ fontSize: '12px', color: '#007bff', fontStyle: 'italic' }}>
-                          → {rec.action}
+                          -> {rec.action}
                         </div>
                       )}
                     </div>
@@ -196,19 +192,18 @@ function SmartAdvisor({ simulationData, attackConfig, onStrategySuggestion }) {
               {/* Risk Score */}
               <div style={{
                 padding: '15px',
-                backgroundColor: '#f8f9fa',
                 borderRadius: '6px',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center'
-              }}>
+              }} className="bg-slate-50 dark:bg-slate-900/50">
                 <div>
-                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Overall Risk Score</div>
+                  <div style={{ fontSize: '12px', marginBottom: '5px' }} className="text-slate-500 dark:text-slate-400">Overall Risk Score</div>
                   <div style={{ fontSize: '24px', fontWeight: 'bold', color: riskColor }}>
                     {analysis.risk_score} / 100
                   </div>
                 </div>
-                <div style={{ fontSize: '12px', color: '#666', textAlign: 'right' }}>
+                <div style={{ fontSize: '12px', textAlign: 'right' }} className="text-slate-500 dark:text-slate-400">
                   {analysis.risk_score < 30 && 'Low risk - Safe to experiment'}
                   {analysis.risk_score >= 30 && analysis.risk_score < 70 && 'Medium risk - Monitor closely'}
                   {analysis.risk_score >= 70 && 'High risk - Extreme conditions'}
@@ -223,4 +218,3 @@ function SmartAdvisor({ simulationData, attackConfig, onStrategySuggestion }) {
 }
 
 export default SmartAdvisor;
-

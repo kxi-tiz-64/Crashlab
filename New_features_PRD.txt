@@ -1,0 +1,604 @@
+﻿# PRODUCT REQUIREMENTS DOCUMENT (PRD) â€“ FEATURE EXPANSION PACK
+## Market Crash Simulation & Algorithm Stress Testing Platform â€“ v2.0 Enhancements
+---
+# PART 1 â€“ EXECUTIVE SUMMARY
+## 1.1 Overview
+This document defines the **feature expansion package** for the **Market Crash Simulation & Algorithm Stress Testing Platform (CrashLab)**. The existing v1.0 system provides synthetic crash generation, algorithm sandboxing, and backtesting capabilities. The enhancements defined herein will transform the platform from a singleâ€‘strategy testing tool into a **comparative analytics and adversarial evaluation platform** for algorithmic trading strategies.
+## 1.2 Scope of Enhancements
+The following six feature categories are included:
+| Feature Area | Description |
+|--------------|-------------|
+| **Strategy Comparison Mode** | Run and compare multiple strategies sideâ€‘byâ€‘side on identical crash scenarios |
+| **Strategy Templates Upgrade** | Preâ€‘built, optimized templates for RSI, MA Crossover, and other common strategies |
+| **Simple Anomaly Detection** | Statistical outlier detection on price/volume behavior within simulated crash data |
+| **Attack Impact Analysis** | Quantitative metrics comparing original vs. crashed market characteristics |
+| **Performance Breakdown** | Drawdown curve, trade PnL distribution histogram, and Sharpe ratio analytics |
+| **Multiâ€‘Year Data Support** | Configurable time horizons (1Y, 5Y, Max) with performance safeguards |
+## 1.3 Guiding Principles
+The following constraints **must** be respected during implementation:
+- **Do not modify core modules:** `backtester.py`, `crash_simulator.py`, and `algo_sandbox.py` remain untouched.
+- **Additive architecture:** New functionality resides in helper modules or extension endpoints.
+- **UI consistency:** All new screens and components must match the existing visual language (colors, layout, and interaction patterns defined in original PRD Part 14).
+- **Stateless design:** No new persistent storage; all state is ephemeral per session.
+- **Backward compatibility:** All existing workflows must continue to function identically.
+---
+# PART 2 â€“ PROBLEM STATEMENT & VALUE PROPOSITION
+## 2.1 Current Limitations
+v1.0 of CrashLab allows users to test **one strategy at a time** against **one crash scenario**. While powerful for initial validation, this workflow has critical gaps:
+- **No comparative analysis:** Users must manually record results across multiple runs to compare strategies.
+- **No strategy library:** Users must write all code from scratch, reducing productivity.
+- **No anomaly visibility:** The platform does not highlight where crash simulations deviate most extremely from normal behavior.
+- **No attack impact quantification:** Users cannot see, numerically, how much volatility or return bias a crash introduces.
+- **Limited performance analytics:** Only basic metrics (final capital, total PnL, win rate, max drawdown) are provided.
+- **Fixed data window:** All analyses are locked to 300 days, preventing multiâ€‘year stress testing.
+## 2.2 Value Proposition
+With these enhancements, CrashLab evolves into a **professionalâ€‘grade adversarial strategy evaluation suite**:
+- **A/B test strategies** under identical crash conditions.
+- **Accelerate strategy development** with template starting points.
+- **Gain forensic insight** into where market manipulation distorts price behavior.
+- **Quantify attack impact** with clean, interpretable metrics.
+- **Deepen performance visibility** with advanced risk/return analytics.
+- **Extend testing horizons** across multiple market regimes.
+---
+# PART 3 â€“ GOALS & SUCCESS METRICS
+## 3.1 Featureâ€‘Specific Goals
+| Goal ID | Goal Description | Owner |
+|---------|------------------|-------|
+| Gâ€‘SCMâ€‘01 | Enable simultaneous backtesting of up to 5 strategies against same crash dataset | Frontend/Backend |
+| Gâ€‘TMPâ€‘01 | Provide at least 5 preâ€‘coded strategy templates accessible with one click | Frontend |
+| Gâ€‘ANDâ€‘01 | Detect and visually mark statistical outliers (â‰¥3Ïƒ) in price returns and volume | Backend/UI |
+| Gâ€‘IMPâ€‘01 | Compute and display comparative metrics (volatility, avg return) before/after crash | Backend/UI |
+| Gâ€‘PERFâ€‘01 | Display drawdown curve, trade PnL histogram, and Sharpe ratio for backtest results | Backend/Frontend |
+| Gâ€‘DATAâ€‘01 | Allow user to select 1Y / 5Y / Max data periods, with automatic rowâ€‘limit safety | Backend/UI |
+## 3.2 Success KPIs
+| KPI | Target |
+|-----|--------|
+| Strategy comparison execution time (3 strategies) | < 2.5 seconds total |
+| Template load time | < 100 ms for code injection |
+| Anomaly detection latency (1000 rows) | < 200 ms |
+| Impact analysis calculation time | < 150 ms |
+| Multiâ€‘year data load (5 years, ~1250 rows) | < 2.5 seconds |
+| UI responsiveness during chart updates | 60 FPS maintained |
+| User satisfaction with new analytics | â‰¥ 90% â€œusefulâ€ rating |
+---
+# PART 4 â€“ PRODUCT SCOPE
+## 4.1 Inâ€‘Scope Features (This Expansion)
+| Feature | Description |
+|---------|-------------|
+| Strategy Comparison Mode | Multiple code editors, parallel execution, results table, overlay equity curves |
+| Enhanced Strategy Templates | RSI, MA Crossover, Bollinger Bands, MACD, and Momentum templates |
+| Anomaly Detection Overlay | Zâ€‘score method for returns/volume; red markers on chart |
+| Attack Impact Metrics Panel | Preâ€‘ vs. postâ€‘crash volatility, average return, and change percentages |
+| Performance Breakdown Analytics | Drawdown curve plot, trade PnL histogram, Sharpe ratio display |
+| Configurable Data Period Selector | Dropdown for 1Y, 5Y, Max with 1000â€‘row cap for UI performance |
+## 4.2 Outâ€‘ofâ€‘Scope (For This Phase)
+- Autoâ€‘optimization of strategy parameters
+- Template parameter customization UI (users edit code directly)
+- Realâ€‘time anomaly alerts or notifications
+- Export of anomaly data or impact metrics as CSV
+- Userâ€‘saved template libraries (clientâ€‘side only)
+- Portfolioâ€‘level impact analysis across multiple symbols
+---
+# PART 5 â€“ SYSTEM ARCHITECTURE ADDITIONS
+The enhancements are implemented as **adjacent modules** that leverage existing endpoints and core logic.
+```
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                     React Frontend (enhanced)                â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+â”‚  â”‚ Comparison UI  â”‚  â”‚ Template Panel  â”‚  â”‚ Period Selectâ”‚ â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+â”‚  â”‚Anomaly Overlay â”‚  â”‚ Impact Metrics  â”‚  â”‚ Perf Charts  â”‚ â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                                â”‚ HTTPS
+â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                    Flask Backend (extended)                  â”‚
+â”‚                                                              â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+â”‚  â”‚         New Supporting Modules (no core changes)        â”‚ â”‚
+â”‚  â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤â”‚
+â”‚  â”‚ anomaly_detector.py         â”‚ impact_analyzer.py       â”‚ â”‚
+â”‚  â”‚ perf_analytics.py           â”‚ data_loader_extended.py  â”‚ â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜â”‚
+â”‚                                                              â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+â”‚  â”‚           Existing Core Modules (UNTOCUHED)             â”‚ â”‚
+â”‚  â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤â”‚
+â”‚  â”‚ data_loader.py  â”‚ crash_simulator.py  â”‚ algo_sandbox.pyâ”‚ â”‚
+â”‚  â”‚ backtester.py   â”‚ reports.py          â”‚                 â”‚ â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+```
+---
+# PART 6 â€“ DETAILED FEATURE SPECIFICATIONS
+## 6.1 Feature: Strategy Comparison Mode
+### 6.1.1 Overview
+Allow users to write and test multiple strategy code blocks simultaneously against the **same crashâ€‘simulated OHLCV dataset**. Results are presented in a comparative table with an overlaid equity curve chart.
+### 6.1.2 Functional Requirements
+#### FRâ€‘SCMâ€‘01: Multiple Editor Instances
+- UI shall present a list of Monaco Editor instances, each representing one strategy.
+- Default: 2 editors visible.
+- User can click **â€œ+ Add Strategyâ€** to append a new editor (maximum 5).
+- Each editor shall have a unique identifier (`id`) and a name label (e.g., â€œStrategy 1â€).
+- Each editor shall be preâ€‘populated with a default simple strategy (e.g., mean reversion).
+#### FRâ€‘SCMâ€‘02: Parallel Strategy Execution
+- Upon clicking **â€œCompare Strategiesâ€**, the frontend shall:
+  1. For each strategy, POST to `/run_algo` with the code string and the current OHLCV.
+  2. For each strategyâ€™s signals, POST to `/backtest` with the same OHLCV and settings.
+  3. Aggregate results into a single response object.
+- Execution shall be parallelized using `Promise.all` on the frontend.
+#### FRâ€‘SCMâ€‘03: Results Comparison UI
+- Display a **metrics comparison table** containing:
+  - Strategy Name
+  - Total PnL
+  - Max Drawdown (%)
+  - Win Rate (%)
+  - Number of Trades
+  - Final Capital
+- Rows shall be sortable by any metric column.
+- Table shall highlight the best value in each column (green background).
+#### FRâ€‘SCMâ€‘04: Multiâ€‘Strategy Equity Curve
+- Use Chart.js with multiple datasets overlaid.
+- Each dataset corresponds to one strategyâ€™s equity curve.
+- Colors shall be distinct and consistent; a legend shall map color to strategy name.
+- Toggle checkboxes allow hiding/showing individual curves.
+#### FRâ€‘SCMâ€‘05: Execution State Management
+- Show a loading spinner during parallel execution.
+- If any strategy fails (sandbox timeout / syntax error), display an error badge next to that strategy with a red â€œ!â€ icon and the error message abbreviated.
+### 6.1.3 API Changes
+**New Endpoint: `POST /compare_strategies`**
+*Purpose:* Orchestrate multiple `run_algo` and `backtest` calls serverâ€‘side, returning aggregated results.
+*Request Body Schema:*
+```json
+{
+  "ohlcv": [ ... ],
+  "strategies": [
+    { "id": 1, "code": "if row['close'] ..." },
+    { "id": 2, "code": "# RSI strategy ..." }
+  ],
+  "settings": {
+    "slippage_pct": 0.001,
+    "fee_pct": 0.00025,
+    "initial_capital": 100000
+  }
+}
+```
+*Success Response Schema:*
+```json
+{
+  "results": [
+    {
+      "id": 1,
+      "name": "Strategy 1",
+      "signals": [ ... ],
+      "backtest": {
+        "metrics": { ... },
+        "equity_curve": [ ... ],
+        "trade_log": [ ... ]
+      },
+      "error": null
+    },
+    {
+      "id": 2,
+      "error": "SyntaxError: invalid syntax at line 3",
+      "signals": [],
+      "backtest": null
+    }
+  ]
+}
+```
+*Implementation Note:* This endpoint shall internally reuse the existing `algo_sandbox.run_strategy()` and `backtester.backtest()` functions without modification.
+### 6.1.4 UI/UX Specifications
+- The comparison interface shall be accessible as a new tab on the **Backtest Results Page** or as a separate page reachable via navigation.
+- Editor panels shall be collapsible to conserve screen space.
+- The metrics table shall be positioned above the equity curve chart.
+- The â€œ+ Add Strategyâ€ button shall be placed below the last editor.
+---
+## 6.2 Feature: Strategy Templates Upgrade
+### 6.2.1 Overview
+Provide oneâ€‘click insertion of preâ€‘written, optimized strategy code templates into the active Monaco editor. Templates serve as educational starting points and accelerate strategy development.
+### 6.2.2 Functional Requirements
+#### FRâ€‘TMPâ€‘01: Template Button Panel
+- A horizontal button strip labeled â€œStrategy Templatesâ€ shall appear above the Monaco editor.
+- Buttons shall be labeled:
+  - **RSI** (Relative Strength Index)
+  - **MA Crossover** (Moving Average)
+  - **Bollinger Bands**
+  - **MACD**
+  - **Momentum**
+  - **Mean Reversion** (default)
+- Clicking a button shall replace the entire content of the active editor with the corresponding template code.
+#### FRâ€‘TMPâ€‘02: Template Code Content
+Templates must be **selfâ€‘contained**, using only the whitelisted API (`row`, `index`, `buy()`, `sell()`, `current_price`, `position`). They must not rely on external libraries.
+**RSI Template Specification:**
+```python
+# RSI (14-period) Oversold/Overbought Strategy
+if index >= 14:
+    gains = []
+    losses = []
+    for i in range(index - 13, index + 1):
+        diff = ohlcv[i]['close'] - ohlcv[i-1]['close']
+        if diff > 0:
+            gains.append(diff)
+        else:
+            losses.append(abs(diff))
+    avg_gain = sum(gains) / 14 if gains else 0
+    avg_loss = sum(losses) / 14 if losses else 0
+    rs = avg_gain / avg_loss if avg_loss > 0 else 100
+    rsi = 100 - (100 / (1 + rs))
+    if rsi < 30 and position['qty'] == 0:
+        buy()
+    elif rsi > 70 and position['qty'] > 0:
+        sell()
+```
+**MA Crossover Template Specification:**
+```python
+# 5/20 Day Moving Average Crossover
+if index >= 20:
+    short_ma = sum(ohlcv[i]['close'] for i in range(index-4, index+1)) / 5
+    long_ma = sum(ohlcv[i]['close'] for i in range(index-19, index+1)) / 20
+    if short_ma > long_ma and position['qty'] == 0:
+        buy()
+    elif short_ma < long_ma and position['qty'] > 0:
+        sell()
+```
+**Bollinger Bands Template:**
+```python
+# Bollinger Bands (20,2) Mean Reversion
+if index >= 20:
+    closes = [ohlcv[i]['close'] for i in range(index-19, index+1)]
+    sma = sum(closes) / 20
+    variance = sum((x - sma) ** 2 for x in closes) / 20
+    std = variance ** 0.5
+    upper = sma + 2 * std
+    lower = sma - 2 * std
+    if row['close'] <= lower and position['qty'] == 0:
+        buy()
+    elif row['close'] >= upper and position['qty'] > 0:
+        sell()
+```
+#### FRâ€‘TMPâ€‘03: Template Descriptions
+- On hover over a template button, show a tooltip explaining the strategy logic, best market conditions, and risk profile.
+### 6.2.3 Implementation Notes
+- Templates are stored as JavaScript constants in the frontend; no backend call required.
+- When in **Comparison Mode**, template insertion shall apply only to the **currently focused** editor.
+---
+## 6.3 Feature: Simple Anomaly Detection
+### 6.3.1 Overview
+Automatically detect and highlight statistical outliers in **price returns** and **volume** within the crashâ€‘simulated dataset. This provides forensic visibility into where the simulation deviates most extremely from normal behavior.
+### 6.3.2 Functional Requirements
+#### FRâ€‘ANDâ€‘01: Detection Algorithm
+- Calculate daily percentage returns: `returns[i] = (close[i] - close[i-1]) / close[i-1]`
+- Calculate Zâ€‘scores for returns: `z_return = (ret - mean(ret)) / std(ret)`
+- Calculate Zâ€‘scores for volume: `z_volume = (vol - mean(vol)) / std(vol)`
+- A data point is flagged as an **anomaly** if `abs(z_return) > 3.0` OR `abs(z_volume) > 3.0`.
+- Anomaly detection shall run on both original and crashâ€‘simulated OHLCV independently.
+#### FRâ€‘ANDâ€‘02: Anomaly Markers on Chart
+- On the OHLCV price chart, anomalies shall be rendered as **red circle markers** positioned at the closing price level.
+- Hovering over a marker shall display a tooltip with:
+  - Date
+  - Return Zâ€‘score
+  - Volume Zâ€‘score
+  - Reason for flagging (price spike, volume spike, or both)
+#### FRâ€‘ANDâ€‘03: API Integration
+- The `/simulate_crash` endpoint response shall be extended to include an `anomalies` array:
+```json
+{
+  "manipulated_ohlcv": [ ... ],
+  "anomalies": [12, 45, 89]
+}
+```
+- The array contains the **row indices** where anomalies were detected.
+#### FRâ€‘ANDâ€‘04: Backend Implementation
+- Create new utility module `anomaly_detector.py` with function:
+```python
+def detect_anomalies(df: pd.DataFrame) -> list:
+    """
+    Returns list of indices where anomalies are detected.
+    """
+```
+- This function shall be called from within `/simulate_crash` after simulation is complete.
+- Anomalies shall be calculated on the **final manipulated DataFrame**.
+### 6.3.3 UI/UX Specifications
+- Anomaly markers shall be toggleable via a checkbox labeled **â€œShow Anomaliesâ€** (default: on).
+- Chart shall use Chart.js **scatter dataset** or custom plugin to draw markers.
+---
+## 6.4 Feature: Attack Impact Analysis
+### 6.4.1 Overview
+Quantify the effect of the crash simulation on key market characteristics: **volatility** (standard deviation of returns) and **average daily return**. Display these metrics in a sideâ€‘byâ€‘side comparison table.
+### 6.4.2 Functional Requirements
+#### FRâ€‘IMPâ€‘01: Metrics Computation
+- For both original and manipulated OHLCV, compute:
+  - **Volatility:** Standard deviation of daily percentage returns.
+  - **Average Return:** Arithmetic mean of daily percentage returns.
+- Calculate percentage change between original and crashed values.
+#### FRâ€‘IMPâ€‘02: UI Display Panel
+- Create a new **Impact Analysis** card on the Crash Simulator Results page.
+- Display as a compact table:
+| Metric | Original | Crashed | Change |
+|--------|----------|---------|--------|
+| Volatility (daily) | 1.23% | 2.87% | +133.3% |
+| Avg Daily Return | 0.05% | -0.12% | -340.0% |
+- Highlight positive changes in red (if they represent increased risk) and negative changes in green.
+#### FRâ€‘IMPâ€‘03: API Integration
+- Extend `/simulate_crash` response to include an `impact` object:
+```json
+{
+  "manipulated_ohlcv": [ ... ],
+  "impact": {
+    "original_volatility": 0.0123,
+    "crash_volatility": 0.0287,
+    "volatility_change_pct": 133.3,
+    "original_avg_return": 0.0005,
+    "crash_avg_return": -0.0012,
+    "return_change_pct": -340.0
+  }
+}
+```
+#### FRâ€‘IMPâ€‘04: Backend Implementation
+- Create new utility module `impact_analyzer.py` with:
+```python
+def compute_impact(original_df: pd.DataFrame, crashed_df: pd.DataFrame) -> dict
+```
+### 6.4.3 UI/UX Specifications
+- Impact panel shall appear below the dual OHLCV chart.
+- Use consistent card styling with existing â€œSimulation Summaryâ€ box.
+---
+## 6.5 Feature: Performance Breakdown Analytics
+### 6.5.1 Overview
+Enhance the Backtest Results page with deeper performance analytics beyond the basic summary metrics.
+### 6.5.2 Functional Requirements
+#### FRâ€‘PERFâ€‘01: Drawdown Curve Visualization
+- Compute drawdown series from the equity curve:
+  - `peak = running maximum of equity`
+  - `drawdown[i] = (equity[i] - peak) / peak`
+- Display as a **filled area chart** below the equity curve (negative values shaded red).
+- Provide a tooltip showing the worst drawdown value and the date it occurred.
+#### FRâ€‘PERFâ€‘02: Trade PnL Distribution Histogram
+- Extract PnL values from each closed trade in `trade_log`.
+- Generate a **histogram** (using Chart.js bar chart) of PnL values.
+- Xâ€‘axis: PnL value (currency units), Yâ€‘axis: frequency count.
+- Bin width shall be automatically determined using Sturgesâ€™ formula or fixed 10 bins.
+- Overlay a vertical line at zero to separate winning and losing trades.
+#### FRâ€‘PERFâ€‘03: Sharpe Ratio Calculation
+- Compute the Sharpe ratio using:
+  ```
+  sharpe = mean(daily_returns) / (std(daily_returns) + 1e-9)
+  ```
+- Daily returns are derived from daily percentage changes in equity.
+- Annualization is **not** required for MVP; display as â€œDaily Sharpeâ€.
+- Add Sharpe ratio to the **Metrics Card** on the Backtest Results page.
+#### FRâ€‘PERFâ€‘04: API Integration
+- Extend `/backtest` response to include:
+```json
+{
+  "metrics": {
+    "final_capital": 103520.0,
+    "total_pnl": 3520.0,
+    "win_rate": 0.52,
+    "num_trades": 14,
+    "max_drawdown": -0.12,
+    "avg_win": 240.0,
+    "avg_loss": -120.0,
+    "sharpe_ratio": 1.85
+  },
+  "drawdown_curve": [ ... ],
+  "trade_pnl_distribution": {
+    "bins": [ -500, -300, -100, 100, 300, 500 ],
+    "counts": [ 2, 3, 5, 3, 1, 0 ]
+  }
+}
+```
+#### FRâ€‘PERFâ€‘05: Backend Implementation
+- Create new utility module `perf_analytics.py` containing:
+  - `compute_drawdown_curve(equity_curve)`
+  - `compute_trade_pnl_histogram(trade_log, bins=10)`
+  - `compute_sharpe_ratio(equity_curve)`
+- The `/backtest` endpoint shall call these functions and append results to response.
+### 6.5.3 UI/UX Specifications
+- Drawdown curve shall be rendered as a second Yâ€‘axis on the equity curve chart or as a separate small chart below.
+- Trade PnL histogram shall be placed in a new section titled â€œTrade Distributionâ€.
+- Sharpe ratio shall be displayed as a new metric in the summary card, with a tooltip explanation.
+---
+## 6.6 Feature: Multiâ€‘Year Data Support
+### 6.6.1 Overview
+Allow the user to select longer historical periods beyond the default 300 days. This enables stress testing across different market regimes (bull, bear, sideways).
+### 6.6.2 Functional Requirements
+#### FRâ€‘DATAâ€‘01: Period Selection UI
+- Add a dropdown selector on the **Load Stock Page**, positioned near the â€œLoad Random Stockâ€ button.
+- Options:
+  - **1 Year** (~252 trading days)
+  - **5 Years** (~1260 trading days)
+  - **Max** (maximum available from Yahoo Finance)
+- Default selection shall be **1 Year**.
+#### FRâ€‘DATAâ€‘02: Data Fetching Logic
+- Backend `/random_stock` endpoint shall accept an optional query parameter `period`.
+  - Valid values: `"1y"`, `"5y"`, `"max"`
+- Use `yfinance.download(symbol, period=period)` to fetch data.
+- Apply `df.tail(1000)` operation if `len(df) > 1000` to prevent frontend performance degradation.
+- If fewer than 30 rows are returned, attempt another symbol.
+#### FRâ€‘DATAâ€‘03: Frontend Data Handling
+- The frontend shall pass the selected period when calling `/random_stock`.
+- The period selection shall persist across entire session (optional, for UX consistency).
+#### FRâ€‘DATAâ€‘04: Performance Safeguards
+- Maximum rows transmitted to frontend: **1000**.
+- Crash simulation, backtesting, and chart rendering must remain performant with 1000 rows.
+- If `max` period exceeds 2000 rows, sample evenly to 1000 rows (or return an error suggesting a shorter period).
+### 6.6.3 API Changes
+**Modified Endpoint: GET /random_stock**
+*Query Parameters:*
+- `period` (optional, default `"1y"`): `"1y" | "5y" | "max"`
+*Response:* Unchanged.
+### 6.6.4 UI/UX Specifications
+- Period selector shall be a standard HTML `<select>` styled to match the platform.
+- When switching period, the â€œLoad Random Stockâ€ button shall trigger a new fetch with the selected period.
+- A small label shall show the number of rows loaded (e.g., â€œ756 data points loadedâ€).
+---
+# PART 7 â€“ DATA MODELS & API CONTRACT UPDATES
+## 7.1 New/Modified API Endpoints Summary
+| Endpoint | Method | Modification |
+|----------|--------|--------------|
+| `/random_stock` | GET | Add `period` query param |
+| `/simulate_crash` | POST | Add `anomalies` and `impact` to response |
+| `/backtest` | POST | Add `sharpe_ratio`, `drawdown_curve`, `trade_pnl_distribution` to response |
+| `/compare_strategies` | POST | **New** â€“ orchestrated multiâ€‘strategy execution |
+## 7.2 Complete `/compare_strategies` Specification
+See Section 6.1.3 for full request/response schemas.
+## 7.3 Extended `/simulate_crash` Response
+```json
+{
+  "manipulated_ohlcv": [ ... ],
+  "anomalies": [12, 45, 89],
+  "impact": {
+    "original_volatility": 0.0123,
+    "crash_volatility": 0.0287,
+    "volatility_change_pct": 133.3,
+    "original_avg_return": 0.0005,
+    "crash_avg_return": -0.0012,
+    "return_change_pct": -340.0
+  }
+}
+```
+## 7.4 Extended `/backtest` Response
+```json
+{
+  "metrics": {
+    "final_capital": 103520.0,
+    "total_pnl": 3520.0,
+    "win_rate": 0.52,
+    "num_trades": 14,
+    "max_drawdown": -0.12,
+    "avg_win": 240.0,
+    "avg_loss": -120.0,
+    "sharpe_ratio": 1.85
+  },
+  "equity_curve": [ ... ],
+  "drawdown_curve": [ -0.00, -0.01, -0.03, ... ],
+  "trade_log": [ ... ],
+  "trade_pnl_distribution": {
+    "bins": [ -500, -300, -100, 100, 300, 500 ],
+    "counts": [ 2, 3, 5, 3, 1, 0 ]
+  }
+}
+```
+---
+# PART 8 â€“ UI/UX DESIGN SPECIFICATIONS (Additions)
+## 8.1 Strategy Comparison Interface
+### Layout
+```
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Strategy Comparison Mode                                    â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  [ Strategy 1 ] [ Strategy 2 ] [ Strategy 3 ]  [+ Add]      â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”        â”‚
+â”‚  â”‚ Monaco Editor 1       â”‚ â”‚ Monaco Editor 2       â”‚        â”‚
+â”‚  â”‚                       â”‚ â”‚                       â”‚        â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜        â”‚
+â”‚                                                              â”‚
+â”‚  [ Compare Strategies ]                                      â”‚
+â”‚                                                              â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”‚
+â”‚  â”‚ Metrics Comparison Table                             â”‚    â”‚
+â”‚  â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤â”‚
+â”‚  â”‚ Strategy   â”‚ PnL     â”‚ Drawdown â”‚ Win Rateâ”‚ Trades  â”‚    â”‚
+â”‚  â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤â”‚
+â”‚  â”‚ Strategy 1 â”‚ â‚¹5,320  â”‚ -12.4%   â”‚ 58%     â”‚ 14      â”‚    â”‚
+â”‚  â”‚ Strategy 2 â”‚ â‚¹2,140  â”‚ -18.7%   â”‚ 42%     â”‚ 22      â”‚    â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜â”‚
+â”‚                                                              â”‚
+â”‚  Multiâ€‘Strategy Equity Curve                                 â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”‚
+â”‚  â”‚  [Chart with 3 overlaid lines]                       â”‚    â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜    â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+```
+## 8.2 Template Panel
+- Positioned directly above Monaco editor.
+- Buttons use secondary style (gray outline) with tooltips on hover.
+## 8.3 Anomaly Markers on Chart
+- Red circle markers (`pointRadius: 5`, `pointBackgroundColor: 'red'`).
+- Hover tooltip shows Zâ€‘score values.
+## 8.4 Impact Analysis Card
+- Collapsible card titled â€œAttack Impact Analysisâ€.
+- Default expanded.
+## 8.5 Performance Breakdown Additions
+- Drawdown chart placed in a new tab or accordion section below equity curve.
+- Trade PnL histogram uses distinct blue bars with red negative bins.
+---
+# PART 9 â€“ NONâ€‘FUNCTIONAL REQUIREMENTS
+## 9.1 Performance
+| Requirement | Target |
+|-------------|--------|
+| `/compare_strategies` execution (3 strategies) | < 2.5 seconds |
+| Anomaly detection on 1000 rows | < 200 ms |
+| Impact analysis calculation | < 150 ms |
+| Frontend chart rendering with 1000 points + markers | 60 FPS |
+| Template code injection | Synchronous, instant |
+## 9.2 Security
+- No new security surface area; all existing sandbox restrictions remain.
+- `/compare_strategies` must apply the same rate limiting as `/run_algo`.
+## 9.3 Maintainability
+- New backend modules shall be independently testable.
+- Unit test coverage â‰¥ 80% for new modules.
+## 9.4 Compatibility
+- All new UI components must work on viewport widths â‰¥ 1280px.
+- Existing color scheme and typography must be strictly followed.
+---
+# PART 10 â€“ TESTING REQUIREMENTS
+## 10.1 Unit Tests (New Modules)
+### `anomaly_detector.py`
+- Test returns empty list for flat data.
+- Test correctly identifies 3Ïƒ outliers.
+- Test that index list corresponds to original DataFrame indices.
+### `impact_analyzer.py`
+- Test volatility and average return calculations.
+- Verify percentage change formulas.
+- Test edge cases (all zeros, constant prices).
+### `perf_analytics.py`
+- Test drawdown curve calculation.
+- Validate Sharpe ratio formula.
+- Test histogram bin generation.
+### Extended `/compare_strategies`
+- Test parallel execution of 2 valid strategies.
+- Test error handling for one failing strategy.
+- Test timeout behavior.
+## 10.2 Integration Tests
+- Multiâ€‘year data fetch with 5y period returns <= 1000 rows after truncation.
+- Anomaly markers correctly render on frontend chart.
+- Impact panel updates after crash simulation.
+## 10.3 E2E Tests (Cypress)
+1. User selects 5y period, loads random stock.
+2. User simulates a Flash Crash with intensity 7.
+3. User copies RSI template into editor.
+4. User enables Strategy Comparison, adds second strategy.
+5. User runs comparison and verifies table and equity curve appear.
+6. User verifies anomaly markers visible on crash chart.
+7. User expands impact analysis card and inspects metrics.
+---
+# PART 11 â€“ IMPLEMENTATION SEQUENCE & PRIORITIZATION
+| Priority | Feature | Effort Estimate | Dependencies |
+|----------|---------|-----------------|--------------|
+| P0 | Multiâ€‘Year Data Support | 1 day | None |
+| P0 | Strategy Templates Upgrade | 1 day | None |
+| P1 | Strategy Comparison Mode | 3 days | Templates, Multiâ€‘Year |
+| P1 | Performance Breakdown (Drawdown, Histogram, Sharpe) | 2 days | Backtester exists |
+| P2 | Anomaly Detection | 1.5 days | Crash Simulator |
+| P2 | Attack Impact Analysis | 1 day | Crash Simulator |
+Total estimated effort: **9.5 developer days**.
+---
+# PART 12 â€“ APPENDIX: TEMPLATE CODE REFERENCE
+Full template code for all strategies is provided in Section 6.2.2.
+---
+# PART 13 â€“ GLOSSARY (New Terms)
+| Term | Definition |
+|------|------------|
+| **Comparative Backtesting** | Running multiple strategies against identical market data for performance comparison |
+| **Anomaly (Statistical)** | A data point deviating >3 standard deviations from the mean |
+| **Drawdown Curve** | Time series of peakâ€‘toâ€‘current equity declines |
+| **Sharpe Ratio** | Measure of riskâ€‘adjusted return (return / volatility) |
+| **Impact Analysis** | Quantitative assessment of how crash simulation altered market characteristics |
+---
+**END OF PRD â€“ FEATURE EXPANSION PACK**
+This document is ready for handoff to Cursor/Codex for implementation. All specifications are selfâ€‘contained and designed for additive development on the existing CrashLab codebase.

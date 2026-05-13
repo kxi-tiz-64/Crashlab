@@ -3,117 +3,18 @@ import Editor from '@monaco-editor/react';
 import apiClient from '../api/apiClient';
 import OhlcvChart from '../components/OhlcvChart';
 import EquityCurveChart from '../components/EquityCurveChart';
+import TemplatePanel, { DEFAULT_TEMPLATE_CODE, DEFAULT_TEMPLATE_KEY, STRATEGY_TEMPLATES } from '../components/TemplatePanel';
 
-const STRATEGY_TEMPLATES = {
-  breakout: {
-    name: 'Simple Breakout Strategy',
-    description: 'Buy on strong upward moves, sell on strong downward moves',
-    code: `# Simple Breakout Strategy
-# Buy when price moves significantly above open
-# Sell when price moves significantly below open
 
-price_change_pct = (current_price - row['open']) / row['open']
 
-if price_change_pct > 0.02:  # 2% above open
-    buy(qty=1)
-elif price_change_pct < -0.02:  # 2% below open
-    sell(qty=1)
-`,
-    bestFor: 'Trending markets, volatile stocks'
-  },
-  mean_reversion: {
-    name: 'Mean Reversion Strategy',
-    description: 'Buy when price is low relative to daily range, sell when high',
-    code: `# Mean Reversion Strategy
-# Buy when close is near daily low (oversold)
-# Sell when close is near daily high (overbought)
-
-daily_range = row['high'] - row['low']
-if daily_range > 0:
-    position_in_range = (current_price - row['low']) / daily_range
-    
-    if position_in_range < 0.3:  # Bottom 30% of range
-        buy(qty=1)
-    elif position_in_range > 0.7:  # Top 30% of range
-        sell(qty=1)
-`,
-    bestFor: 'Range-bound markets, oversold/overbought conditions'
-  },
-  
-  rsi: {
-    name: 'Price Action Strategy',
-    description: 'Buy on red days (oversold), sell on green days (overbought)',
-    code: `# Price Action Strategy
-# Simple mean reversion based on daily price action
-# Buy when price closes below open (red day)
-# Sell when price closes above open (green day)
-
-is_red_day = current_price < row['open']
-is_green_day = current_price > row['open']
-
-# Buy on red days (oversold)
-if is_red_day and (row['close'] - row['low']) / (row['high'] - row['low'] + 0.01) < 0.3:
-    buy(qty=1)
-# Sell on strong green days (overbought)
-elif is_green_day and (row['close'] - row['low']) / (row['high'] - row['low'] + 0.01) > 0.7:
-    sell(qty=1)
-`,
-    bestFor: 'Range-bound markets, identifying overbought/oversold conditions'
-  },
-  moving_average_cross: {
-    name: 'Price vs Range Strategy',
-    description: 'Buy when price is in lower range, sell when in upper range',
-    code: `# Price vs Range Strategy
-# Uses current price position within daily range
-# Buy when price is in lower portion of range
-# Sell when price is in upper portion of range
-
-daily_range = row['high'] - row['low']
-if daily_range > 0:
-    price_position = (current_price - row['low']) / daily_range
-    
-    # Buy when price is in lower 40% of range
-    if price_position < 0.4:
-        buy(qty=1)
-    # Sell when price is in upper 40% of range
-    elif price_position > 0.6:
-        sell(qty=1)
-`,
-    bestFor: 'Trend-following, identifying trend changes'
-  },
-  crash_resilient: {
-    name: 'Crash-Resilient Strategy',
-    description: 'Designed to handle market crashes - exits on large drops, re-enters on recovery',
-    code: `# Crash-Resilient Strategy
-# Exit positions during large price drops, re-enter on recovery
-
-daily_change_pct = (current_price - row['open']) / row['open']
-daily_range_pct = (row['high'] - row['low']) / row['open']
-
-# Large drop detected (potential crash)
-if daily_change_pct < -0.05 or daily_range_pct > 0.08:  # 5% drop or 8% range
-    # Exit all positions to protect capital
-    if position.qty > 0:
-        sell(qty=position.qty)
-# Recovery or normal conditions
-elif daily_change_pct > 0.01 and daily_range_pct < 0.04:  # Small positive move, low volatility
-    # Re-enter on recovery
-    if position.qty == 0:
-        buy(qty=1)
-`,
-    bestFor: 'Crash scenarios, protecting capital during volatility spikes'
-  }
-};
-
-const DEFAULT_CODE = STRATEGY_TEMPLATES.mean_reversion.code;
-
-function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onNext }) {
-  const [code, setCode] = useState(DEFAULT_CODE);
+function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onNext, initialCode }) {
+  const [code, setCode] = useState(initialCode || DEFAULT_TEMPLATE_CODE);
+  const [strategyName, setStrategyName] = useState('My Strategy');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [signals, setSignals] = useState(null);
   const [backtestResults, setBacktestResults] = useState(null);
-  const [selectedStrategy, setSelectedStrategy] = useState(null);
+  const [selectedStrategy, setSelectedStrategy] = useState(DEFAULT_TEMPLATE_KEY);
   const [showRecommendations, setShowRecommendations] = useState(true);
 
   const handleLoadTemplate = (templateKey) => {
@@ -188,6 +89,18 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
     }
   };
 
+  const handleSaveStrategy = async () => {
+    try {
+      await apiClient.post('/strategies/save', {
+        name: strategyName,
+        code
+      });
+      alert('Strategy saved successfully!');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to save strategy');
+    }
+  };
+
   return (
     <div className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -242,17 +155,18 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
                   {strategy.description}
                 </div>
                 <div style={{ fontSize: '11px', color: '#28a745', fontStyle: 'italic' }}>
-                  ✓ Best for: {strategy.bestFor}
+                  Best for: {strategy.bestFor}
                 </div>
               </div>
             ))}
 
             <div style={{ marginTop: '30px', padding: '15px', backgroundColor: '#fff3cd', borderRadius: '6px', border: '1px solid #ffc107' }}>
-              <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>💡 Pro Tips</div>
+              <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Pro Tips</div>
               <ul style={{ fontSize: '12px', margin: 0, paddingLeft: '20px', color: '#856404' }}>
                 <li>Test strategies on both normal and crash data</li>
-                <li>Use position.qty to check current holdings</li>
+                <li>Use position['qty'] to check current holdings</li>
                 <li>Access row['open'], row['high'], row['low'], row['close'], row['volume']</li>
+                <li>Use ohlcv[index-n] for historical candles</li>
                 <li>Use current_price for the current close price</li>
                 <li>Call buy(qty) or sell(qty) to generate signals</li>
               </ul>
@@ -265,9 +179,14 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
           <div style={{ marginBottom: '20px' }}>
             <h3>Strategy Code</h3>
             <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-              Write your trading algorithm in Python. Available variables: <code>row</code>, <code>index</code>, <code>current_price</code>, <code>position</code>, <code>buy()</code>, <code>sell()</code>
+              Write your trading algorithm in Python. Available variables: <code>row</code>, <code>index</code>, <code>ohlcv</code>, <code>current_price</code>, <code>position</code>, <code>buy()</code>, <code>sell()</code>
             </p>
           </div>
+
+          <TemplatePanel
+            activeKey={selectedStrategy}
+            onSelectTemplate={handleLoadTemplate}
+          />
 
           <div className="editor-container" style={{ marginBottom: '20px', border: '1px solid #dee2e6', borderRadius: '4px', overflow: 'hidden' }}>
             <Editor
@@ -286,14 +205,35 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', alignItems: 'center' }}>
+            <input 
+              value={strategyName} 
+              onChange={(e) => setStrategyName(e.target.value)}
+              placeholder="Strategy Name"
+              style={{
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #dee2e6',
+                flex: 1,
+                maxWidth: '200px',
+                background: 'var(--background)',
+                color: 'var(--foreground)'
+              }}
+            />
+            <button
+              className="button"
+              onClick={handleSaveStrategy}
+              style={{ backgroundColor: '#6c757d', minWidth: '120px' }}
+            >
+              Save Strategy
+            </button>
             <button
               className="button"
               onClick={handleRunStrategy}
               disabled={loading}
               style={{ flex: 1 }}
             >
-              {loading ? 'Running...' : '▶ Run Strategy & Backtest'}
+              {loading ? 'Running...' : 'Run Strategy & Backtest'}
             </button>
             {signals && (
               <button
@@ -302,14 +242,14 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
                 disabled={loading}
                 style={{ backgroundColor: '#28a745' }}
               >
-                🔄 Re-run Backtest
+                Re-run Backtest
               </button>
             )}
           </div>
 
           {error && (
             <div className="error-message" style={{ marginBottom: '20px' }}>
-              ❌ {error}
+              Error: {error}
             </div>
           )}
 
@@ -340,13 +280,13 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
                 <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                   <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Final Capital</div>
                   <div style={{ fontSize: '24px', fontWeight: 'bold', color: backtestResults.metrics.final_capital >= 100000 ? '#28a745' : '#dc3545' }}>
-                    ₹{backtestResults.metrics.final_capital.toLocaleString()}
+                    Rs.{backtestResults.metrics.final_capital.toLocaleString()}
                   </div>
                 </div>
                 <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                   <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Total PnL</div>
                   <div style={{ fontSize: '24px', fontWeight: 'bold', color: backtestResults.metrics.total_pnl >= 0 ? '#28a745' : '#dc3545' }}>
-                    ₹{backtestResults.metrics.total_pnl >= 0 ? '+' : ''}{backtestResults.metrics.total_pnl.toLocaleString()}
+                    Rs.{backtestResults.metrics.total_pnl >= 0 ? '+' : ''}{backtestResults.metrics.total_pnl.toLocaleString()}
                   </div>
                 </div>
                 <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
@@ -379,7 +319,7 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
               <div style={{ marginBottom: '30px' }}>
                 <h4>Equity Curve</h4>
                 <div className="chart-container" style={{ height: '350px' }}>
-                  <EquityCurveChart tradeLog={backtestResults.trade_log} />
+                  <EquityCurveChart data={backtestResults.equity_curve} />
                 </div>
               </div>
 
@@ -388,14 +328,14 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
                 onClick={onNext}
                 style={{ width: '100%', marginTop: '20px' }}
               >
-                View Detailed Results →
+                View Detailed Results ->
               </button>
             </div>
           )}
 
           {!signals && !loading && (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: '#666', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
-              <div style={{ fontSize: '48px', marginBottom: '20px' }}>💻</div>
+              <div style={{ fontSize: '48px', marginBottom: '20px' }}>[Code]</div>
               <h3>Ready to Test Your Strategy</h3>
               <p>Write your algorithm code above or select a template from the recommendations panel</p>
             </div>
@@ -407,3 +347,4 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
 }
 
 export default AlgoEditorPage;
+

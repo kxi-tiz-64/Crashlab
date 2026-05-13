@@ -21,7 +21,7 @@ ChartJS.register(
   Legend
 );
 
-function ComparisonChart({ originalData, crashData }) {
+function ComparisonChart({ originalData, crashData, anomalies = [], anomalyDetails = [], showAnomalies = true }) {
   if (!originalData || !crashData || originalData.length === 0 || crashData.length === 0) {
     return <div className="loading">No data available</div>;
   }
@@ -37,23 +37,46 @@ function ComparisonChart({ originalData, crashData }) {
         label: 'Original Data',
         data: originalCloses,
         borderColor: 'rgb(0, 123, 255)',
-        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+        backgroundColor: 'rgba(0, 123, 255, 0.12)',
         borderWidth: 2,
         pointRadius: 0,
         tension: 0.1,
+        fill: true,
       },
       {
         label: 'Simulated Crash Data',
         data: crashCloses,
         borderColor: 'rgb(220, 53, 69)',
-        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+        backgroundColor: 'rgba(220, 53, 69, 0.12)',
         borderWidth: 2,
         pointRadius: 0,
         tension: 0.1,
         borderDash: [5, 5],
+        fill: true,
       },
     ],
   };
+
+  if (showAnomalies && anomalies.length > 0) {
+    const anomalyData = new Array(dates.length).fill(null);
+    anomalies.forEach(idx => {
+      if (idx >= 0 && idx < crashData.length) {
+        anomalyData[idx] = crashData[idx].close;
+      }
+    });
+
+    chartData.datasets.push({
+      label: 'Anomalies',
+      data: anomalyData,
+      borderColor: 'rgb(220, 53, 69)',
+      backgroundColor: 'red',
+      pointRadius: 5,
+      pointHoverRadius: 8,
+      pointStyle: 'circle',
+      showLine: false,
+      anomalyDetails,
+    });
+  }
 
   const options = {
     responsive: true,
@@ -71,12 +94,21 @@ function ComparisonChart({ originalData, crashData }) {
         intersect: false,
         callbacks: {
           label: function(context) {
+            if (context.dataset.label === 'Anomalies') {
+              const detail = (context.dataset.anomalyDetails || []).find(item => item.index === context.dataIndex);
+              if (!detail) return `Anomaly at ${dates[context.dataIndex]}`;
+              return [
+                `Anomaly: ${detail.reason}`,
+                `Return Z: ${Number(detail.return_z).toFixed(2)}`,
+                `Volume Z: ${Number(detail.volume_z).toFixed(2)}`,
+              ];
+            }
             let label = context.dataset.label || '';
             if (label) {
               label += ': ';
             }
             if (context.parsed.y !== null) {
-              label += '₹' + context.parsed.y.toFixed(2);
+              label += 'Rs.' + context.parsed.y.toFixed(2);
               
               // Show difference if both datasets are present
               if (context.datasetIndex === 1 && context.dataIndex < originalCloses.length) {
@@ -106,7 +138,7 @@ function ComparisonChart({ originalData, crashData }) {
         display: true,
         title: {
           display: true,
-          text: 'Price (₹)',
+          text: 'Price (Rs.)',
         },
       },
     },
@@ -115,6 +147,7 @@ function ComparisonChart({ originalData, crashData }) {
       axis: 'x',
       intersect: false,
     },
+    animation: { duration: 800, easing: 'easeOutQuart' },
   };
 
   return (

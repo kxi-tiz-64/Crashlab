@@ -8,6 +8,7 @@ import SmartAdvisor from '../components/SmartAdvisor';
 import ParameterExplanation from '../components/ParameterExplanation';
 import TradeSuggestions from '../components/TradeSuggestions';
 import ChartWithExplanation from '../components/ChartWithExplanation';
+import ImpactCard from '../components/ImpactCard';
 
 // Tooltip component
 const Tooltip = ({ text, children }) => {
@@ -54,12 +55,16 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [crashData, setCrashData] = useState(null);
+  const [anomalies, setAnomalies] = useState([]);
+  const [anomalyDetails, setAnomalyDetails] = useState([]);
+  const [impact, setImpact] = useState(null);
+  const [showAnomalies, setShowAnomalies] = useState(true);
   
   // Basic controls
   const [enableSpoofing, setEnableSpoofing] = useState(false);
   const [enableQuoteStuffing, setEnableQuoteStuffing] = useState(false);
   const [enableFlashCrash, setEnableFlashCrash] = useState(false);
-  const [intensity, setIntensity] = useState(5);
+  const [overallIntensity, setOverallIntensity] = useState(5);
   
   // Spoofing parameters
   const [spoofingPriceChange, setSpoofingPriceChange] = useState(2.5);
@@ -81,7 +86,7 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
   const [isSimulating, setIsSimulating] = useState(false);
   const [expertMode, setExpertMode] = useState(false);
   const [strategySuggestions, setStrategySuggestions] = useState(null);
-  const [attackSequence, setAttackSequence] = useState([]);
+  const [attackSequence] = useState([]);
 
   const handleSimulateCrash = useCallback(async (showLoading = true) => {
     if (!enableSpoofing && !enableQuoteStuffing && !enableFlashCrash) {
@@ -89,10 +94,7 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
       return;
     }
 
-    // Prevent multiple simultaneous simulations
-    if (isSimulating) {
-      return;
-    }
+    if (isSimulating) return;
 
     if (showLoading) {
       setLoading(true);
@@ -106,7 +108,7 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
         enable_spoofing: enableSpoofing,
         enable_quote_stuffing: enableQuoteStuffing,
         enable_flash_crash: enableFlashCrash,
-        intensity: intensity,
+        intensity: overallIntensity,
         spoofing_price_change_pct: enableSpoofing ? spoofingPriceChange / 100 : null,
         spoofing_volume_multiplier: enableSpoofing ? spoofingVolumeMultiplier : null,
         spoofing_num_points: enableSpoofing ? spoofingNumPoints : null,
@@ -128,7 +130,10 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
       }
 
       setCrashData(response.data.manipulated_ohlcv);
-      onCrashSimulated(response.data.manipulated_ohlcv);
+      setAnomalies(response.data.anomalies || []);
+      setAnomalyDetails(response.data.anomaly_details || []);
+      setImpact(response.data.impact || null);
+      onCrashSimulated(response.data);
     } catch (err) {
       if (showLoading) setError(err.response?.data?.message || 'Failed to simulate crash');
     } finally {
@@ -136,45 +141,37 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
       setIsSimulating(false);
     }
   }, [
-    originalData, enableSpoofing, enableQuoteStuffing, enableFlashCrash, intensity,
+    originalData, enableSpoofing, enableQuoteStuffing, enableFlashCrash, overallIntensity,
     spoofingPriceChange, spoofingVolumeMultiplier, spoofingNumPoints,
     quoteStuffingMaxDeviation, quoteStuffingVolumeShock, quoteStuffingNumPoints,
     flashCrashPriceDrop, flashCrashVolatilitySpike, flashCrashDuration, flashCrashRecoveryDuration,
     attackSequence, onCrashSimulated, isSimulating
   ]);
 
-  // Auto-preview effect with proper debouncing - DISABLED BY DEFAULT TO PREVENT GLITCHING
   useEffect(() => {
     if (!autoPreview || (!enableSpoofing && !enableQuoteStuffing && !enableFlashCrash) || isSimulating) {
       return;
     }
-    
     const timer = setTimeout(() => {
       if (!isSimulating) {
         handleSimulateCrash(false);
       }
-    }, 1500); // Increased debounce time to prevent glitching
-    
+    }, 1500);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     autoPreview, enableSpoofing, enableQuoteStuffing, enableFlashCrash,
-    intensity, spoofingPriceChange, spoofingVolumeMultiplier, spoofingNumPoints,
+    overallIntensity, spoofingPriceChange, spoofingVolumeMultiplier, spoofingNumPoints,
     quoteStuffingMaxDeviation, quoteStuffingVolumeShock, quoteStuffingNumPoints,
     flashCrashPriceDrop, flashCrashVolatilitySpike, flashCrashDuration, flashCrashRecoveryDuration,
-    isSimulating
+    isSimulating, handleSimulateCrash
   ]);
 
-  // Calculate statistics - memoized to prevent constant recalculation
   const [stats, setStats] = useState(null);
-  
   useEffect(() => {
     if (!crashData || !originalData || crashData.length === 0) {
       setStats(null);
       return;
     }
-    
-    // Debounce stats calculation
     const timer = setTimeout(() => {
       const priceChange = ((crashData[crashData.length - 1].close - originalData[originalData.length - 1].close) / originalData[originalData.length - 1].close * 100).toFixed(2);
       const maxPriceDiff = Math.max(...crashData.map((d, i) => Math.abs(d.close - originalData[i].close) / originalData[i].close * 100)).toFixed(2);
@@ -182,18 +179,13 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
       const avgCrashVolume = crashData.reduce((sum, d) => sum + d.volume, 0) / crashData.length;
       const avgVolumeChange = ((avgCrashVolume / avgOriginalVolume - 1) * 100).toFixed(1);
       const modifiedPoints = crashData.filter((d, i) => 
-        Math.abs(d.close - originalData[i].close) > 0.01 ||
-        Math.abs(d.volume - originalData[i].volume) > 0.01
+        Math.abs(d.close - originalData[i].close) > 0.01 || Math.abs(d.volume - originalData[i].volume) > 0.01
       ).length;
-      
-      // Calculate volatility
       const originalVolatility = calculateVolatility(originalData);
       const crashVolatility = calculateVolatility(crashData);
       const volatilityChange = ((crashVolatility / originalVolatility - 1) * 100).toFixed(1);
-      
       setStats({ priceChange, maxPriceDiff, avgVolumeChange, modifiedPoints, volatilityChange });
     }, 100);
-    
     return () => clearTimeout(timer);
   }, [crashData, originalData]);
 
@@ -210,7 +202,7 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
   const ParameterControl = ({ label, value, onChange, min, max, step, tooltip, unit = '' }) => (
     <div style={{ marginBottom: '15px' }}>
       <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-        <span>
+        <span className="text-slate-700 dark:text-slate-200">
           <Tooltip text={tooltip}>{label}</Tooltip>
         </span>
         <span style={{ fontWeight: 'bold', color: '#007bff' }}>
@@ -226,7 +218,7 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
         onChange={(e) => onChange(parseFloat(e.target.value))}
         style={{ width: '100%' }}
       />
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#666' }}>
+      <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
         <span>{min}{unit}</span>
         <span>{max}{unit}</span>
       </div>
@@ -234,11 +226,11 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
   );
 
   return (
-    <div className="page">
+    <div className="page p-6">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
-          <h2>Advanced Crash Simulation</h2>
-          <p style={{ color: '#666', marginTop: '5px' }}>
+          <h2 className="text-2xl font-bold dark:text-white">Advanced Crash Simulation</h2>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">
             Customize attack parameters in real-time to generate realistic market crash scenarios
           </p>
         </div>
@@ -247,65 +239,39 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
             <input
               type="checkbox"
               checked={autoPreview}
-              onChange={(e) => {
-                setAutoPreview(e.target.checked);
-                if (!e.target.checked) {
-                  setIsSimulating(false); // Reset when disabling
-                }
-              }}
+              onChange={(e) => setAutoPreview(e.target.checked)}
             />
-            <span>Auto Preview</span>
-            <span style={{ fontSize: '11px', color: '#666', marginLeft: '5px' }}>(May cause glitching)</span>
+            <span className="text-sm dark:text-slate-300">Auto Preview</span>
           </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 12px', backgroundColor: '#f8f9fa', borderRadius: '20px' }}>
-            <span style={{ fontSize: '12px', color: '#666' }}>Beginner</span>
-            <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', cursor: 'pointer' }}>
+          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full transition-colors">
+            <span className="text-xs text-slate-500 dark:text-slate-400">Beginner</span>
+            <label className="relative inline-block w-11 h-6 cursor-pointer">
               <input
                 type="checkbox"
                 checked={expertMode}
                 onChange={(e) => setExpertMode(e.target.checked)}
-                style={{ opacity: 0, width: 0, height: 0 }}
+                className="opacity-0 w-0 h-0"
               />
-              <span style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: expertMode ? '#007bff' : '#ccc',
-                borderRadius: '24px',
-                transition: '0.3s'
-              }}>
-                <span style={{
-                  position: 'absolute',
-                  height: '18px',
-                  width: '18px',
-                  left: expertMode ? '22px' : '3px',
-                  bottom: '3px',
-                  backgroundColor: 'white',
-                  borderRadius: '50%',
-                  transition: '0.3s',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }} />
+              <span className={`absolute inset-0 rounded-full transition-colors duration-300 ${expertMode ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                <span className={`absolute left-1 bottom-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ${expertMode ? 'translate-x-5' : ''}`} />
               </span>
             </label>
-            <span style={{ fontSize: '12px', color: '#666' }}>Expert</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Expert</span>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '20px' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6">
         {/* Left Panel - Controls */}
-        <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', height: 'fit-content', position: 'sticky', top: '20px' }}>
-          <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Attack Configuration</h3>
+        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-6 rounded-xl h-fit sticky top-6 transition-colors">
+          <h3 className="text-lg font-bold mb-6 dark:text-white border-b border-slate-200 dark:border-slate-700 pb-2">Attack Configuration</h3>
           
-          {/* Basic Controls */}
-          <div style={{ marginBottom: '25px', paddingBottom: '25px', borderBottom: '1px solid #dee2e6' }}>
-            <h4 style={{ marginBottom: '15px' }}>General Settings</h4>
+          <div className="mb-8">
+            <h4 className="text-sm font-semibold mb-4 text-slate-800 dark:text-slate-200 uppercase tracking-wider">General Settings</h4>
             <ParameterControl
               label="Overall Intensity"
-              value={intensity}
-              onChange={setIntensity}
+              value={overallIntensity}
+              onChange={setOverallIntensity}
               min={1}
               max={10}
               step={1}
@@ -313,319 +279,171 @@ function CrashSimulatorPage({ originalData, symbol, onCrashSimulated, onNext }) 
             />
           </div>
 
-          {/* Spoofing Controls */}
-          <div style={{ marginBottom: '25px', paddingBottom: '25px', borderBottom: '1px solid #dee2e6' }}>
-            <label style={{ display: 'flex', alignItems: 'center', marginBottom: '15px', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={enableSpoofing}
-                onChange={(e) => setEnableSpoofing(e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              <strong>
-                <Tooltip text="Creates fake volume walls and price drift to manipulate market perception">
-                  Spoofing Attack
-                </Tooltip>
-              </strong>
-            </label>
-            {enableSpoofing && (
-              <div style={{ marginLeft: '26px', marginTop: '10px' }}>
-                <ParameterControl
-                  label="Price Change %"
-                  value={spoofingPriceChange}
-                  onChange={setSpoofingPriceChange}
-                  min={0.5}
-                  max={10}
-                  step={0.1}
-                  tooltip="Maximum price drift percentage per affected data point"
-                  unit="%"
+          <div className="mb-8 space-y-6">
+            <div className="space-y-4">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={enableSpoofing}
+                  onChange={(e) => setEnableSpoofing(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-blue-600"
                 />
-                {expertMode && (
-                  <ParameterExplanation
-                    parameterName="spoofing_price_change_pct"
-                    value={spoofingPriceChange}
-                    attackType="spoofing"
-                  />
-                )}
-                <ParameterControl
-                  label="Volume Multiplier"
-                  value={spoofingVolumeMultiplier}
-                  onChange={setSpoofingVolumeMultiplier}
-                  min={1.5}
-                  max={5}
-                  step={0.1}
-                  tooltip="Multiplier for volume to create fake walls"
-                />
-                <ParameterControl
-                  label="Affected Points"
-                  value={spoofingNumPoints}
-                  onChange={setSpoofingNumPoints}
-                  min={2}
-                  max={10}
-                  step={1}
-                  tooltip="Number of consecutive data points to modify"
-                />
-              </div>
-            )}
-          </div>
+                <span className="font-bold dark:text-slate-200 group-hover:text-blue-500 transition-colors">
+                  <Tooltip text="Creates fake volume walls and price drift">Spoofing Attack</Tooltip>
+                </span>
+              </label>
+              {enableSpoofing && (
+                <div className="pl-7 space-y-4">
+                  <ParameterControl label="Price Change %" value={spoofingPriceChange} onChange={setSpoofingPriceChange} min={0.5} max={10} step={0.1} unit="%" />
+                  {expertMode && <ParameterExplanation parameterName="spoofing_price_change_pct" value={spoofingPriceChange} attackType="spoofing" />}
+                  <ParameterControl label="Volume Multiplier" value={spoofingVolumeMultiplier} onChange={setSpoofingVolumeMultiplier} min={1.5} max={5} step={0.1} />
+                  <ParameterControl label="Affected Points" value={spoofingNumPoints} onChange={setSpoofingNumPoints} min={2} max={10} step={1} />
+                </div>
+              )}
+            </div>
 
-          {/* Quote Stuffing Controls */}
-          <div style={{ marginBottom: '25px', paddingBottom: '25px', borderBottom: '1px solid #dee2e6' }}>
-            <label style={{ display: 'flex', alignItems: 'center', marginBottom: '15px', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={enableQuoteStuffing}
-                onChange={(e) => setEnableQuoteStuffing(e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              <strong>
-                <Tooltip text="Creates abnormal wicks and volume jitter to overwhelm order books">
-                  Quote Stuffing Attack
-                </Tooltip>
-              </strong>
-            </label>
-            {enableQuoteStuffing && (
-              <div style={{ marginLeft: '26px', marginTop: '10px' }}>
-                <ParameterControl
-                  label="Max Deviation %"
-                  value={quoteStuffingMaxDeviation}
-                  onChange={setQuoteStuffingMaxDeviation}
-                  min={1}
-                  max={10}
-                  step={0.1}
-                  tooltip="Maximum percentage deviation for high/low wicks"
-                  unit="%"
+            <div className="space-y-4">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={enableQuoteStuffing}
+                  onChange={(e) => setEnableQuoteStuffing(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-blue-600"
                 />
-                <ParameterControl
-                  label="Volume Shock"
-                  value={quoteStuffingVolumeShock}
-                  onChange={setQuoteStuffingVolumeShock}
-                  min={1}
-                  max={5}
-                  step={0.1}
-                  tooltip="Volume shock multiplier for affected points"
-                />
-                <ParameterControl
-                  label="Affected Points"
-                  value={quoteStuffingNumPoints}
-                  onChange={setQuoteStuffingNumPoints}
-                  min={3}
-                  max={15}
-                  step={1}
-                  tooltip="Number of random data points to modify"
-                />
-              </div>
-            )}
-          </div>
+                <span className="font-bold dark:text-slate-200 group-hover:text-blue-500 transition-colors">
+                  <Tooltip text="Creates abnormal wicks and volume jitter">Quote Stuffing Attack</Tooltip>
+                </span>
+              </label>
+              {enableQuoteStuffing && (
+                <div className="pl-7 space-y-4">
+                  <ParameterControl label="Max Deviation %" value={quoteStuffingMaxDeviation} onChange={setQuoteStuffingMaxDeviation} min={1} max={10} step={0.1} unit="%" />
+                  <ParameterControl label="Volume Shock" value={quoteStuffingVolumeShock} onChange={setQuoteStuffingVolumeShock} min={1} max={5} step={0.1} />
+                  <ParameterControl label="Affected Points" value={quoteStuffingNumPoints} onChange={setQuoteStuffingNumPoints} min={3} max={15} step={1} />
+                </div>
+              )}
+            </div>
 
-          {/* Flash Crash Controls */}
-          <div style={{ marginBottom: '25px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', marginBottom: '15px', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={enableFlashCrash}
-                onChange={(e) => setEnableFlashCrash(e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              <strong>
-                <Tooltip text="Creates sudden price collapse followed by recovery, simulating panic selling">
-                  Flash Crash Attack
-                </Tooltip>
-              </strong>
-            </label>
-            {enableFlashCrash && (
-              <div style={{ marginLeft: '26px', marginTop: '10px' }}>
-                <ParameterControl
-                  label="Price Drop %"
-                  value={flashCrashPriceDrop}
-                  onChange={setFlashCrashPriceDrop}
-                  min={3}
-                  max={30}
-                  step={0.5}
-                  tooltip="Total percentage price drop during crash phase"
-                  unit="%"
+            <div className="space-y-4">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={enableFlashCrash}
+                  onChange={(e) => setEnableFlashCrash(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-blue-600"
                 />
-                <ParameterControl
-                  label="Volatility Spike"
-                  value={flashCrashVolatilitySpike}
-                  onChange={setFlashCrashVolatilitySpike}
-                  min={1.5}
-                  max={5}
-                  step={0.1}
-                  tooltip="Volume multiplier during crash phase"
-                />
-                <ParameterControl
-                  label="Crash Duration"
-                  value={flashCrashDuration}
-                  onChange={setFlashCrashDuration}
-                  min={1}
-                  max={5}
-                  step={1}
-                  tooltip="Number of days for crash phase"
-                  unit=" days"
-                />
-                <ParameterControl
-                  label="Recovery Duration"
-                  value={flashCrashRecoveryDuration}
-                  onChange={setFlashCrashRecoveryDuration}
-                  min={2}
-                  max={10}
-                  step={1}
-                  tooltip="Number of days for recovery phase"
-                  unit=" days"
-                />
-              </div>
-            )}
+                <span className="font-bold dark:text-slate-200 group-hover:text-blue-500 transition-colors">
+                  <Tooltip text="Creates sudden price collapse followed by recovery">Flash Crash Attack</Tooltip>
+                </span>
+              </label>
+              {enableFlashCrash && (
+                <div className="pl-7 space-y-4">
+                  <ParameterControl label="Price Drop %" value={flashCrashPriceDrop} onChange={setFlashCrashPriceDrop} min={3} max={30} step={0.5} unit="%" />
+                  <ParameterControl label="Volatility Spike" value={flashCrashVolatilitySpike} onChange={setFlashCrashVolatilitySpike} min={1.5} max={5} step={0.1} />
+                  <ParameterControl label="Crash Duration" value={flashCrashDuration} onChange={setFlashCrashDuration} min={1} max={5} step={1} unit=" days" />
+                  <ParameterControl label="Recovery Duration" value={flashCrashRecoveryDuration} onChange={setFlashCrashRecoveryDuration} min={2} max={10} step={1} unit=" days" />
+                </div>
+              )}
+            </div>
           </div>
 
           <button
-            className="button"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4"
             onClick={() => handleSimulateCrash(true)}
             disabled={loading}
-            style={{ width: '100%', marginTop: '20px' }}
           >
             {loading ? 'Simulating...' : 'Run Simulation'}
           </button>
         </div>
 
         {/* Right Panel - Visualizations */}
-        <div>
-          {error && (
-            <div className="error-message" style={{ marginBottom: '20px' }}>
-              ❌ {error}
-            </div>
-          )}
+        <div className="space-y-6">
+          {error && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 p-4 rounded-lg">{error}</div>}
 
           {crashData && stats && !isSimulating && (
             <>
-              {/* AI Smart Advisor */}
               <SmartAdvisor
-                simulationData={{
-                  original: originalData,
-                  crash: crashData
-                }}
-                attackConfig={{
-                  enable_spoofing: enableSpoofing,
-                  enable_quote_stuffing: enableQuoteStuffing,
-                  enable_flash_crash: enableFlashCrash
-                }}
+                simulationData={{ original: originalData, crash: crashData }}
+                attackConfig={{ enable_spoofing: enableSpoofing, enable_quote_stuffing: enableQuoteStuffing, enable_flash_crash: enableFlashCrash }}
                 onStrategySuggestion={setStrategySuggestions}
               />
 
-              {/* Trade Suggestions */}
               {strategySuggestions && (
-                <TradeSuggestions
-                  suggestions={strategySuggestions}
-                  onSelectStrategy={(strategy) => {
-                    // This will be handled by parent component
-                    console.log('Strategy selected:', strategy);
-                  }}
-                />
+                <TradeSuggestions suggestions={strategySuggestions} onSelectStrategy={(s) => console.log('Strategy selected:', s)} />
               )}
 
-              {/* Statistics Dashboard */}
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
-                gap: '15px', 
-                marginBottom: '30px'
-              }}>
-                <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Price Change</div>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: parseFloat(stats.priceChange) >= 0 ? '#28a745' : '#dc3545' }}>
-                    {stats.priceChange > 0 ? '+' : ''}{stats.priceChange}%
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {[
+                  { label: 'Price Change', value: `${stats.priceChange > 0 ? '+' : ''}${stats.priceChange}%`, color: parseFloat(stats.priceChange) >= 0 ? 'text-green-600' : 'text-red-600' },
+                  { label: 'Max Deviation', value: `${stats.maxPriceDiff}%`, color: 'text-red-600' },
+                  { label: 'Volume Change', value: `${stats.avgVolumeChange > 0 ? '+' : ''}${stats.avgVolumeChange}%`, color: parseFloat(stats.avgVolumeChange) >= 0 ? 'text-red-600' : 'text-green-600' },
+                  { label: 'Volatility Change', value: `${stats.volatilityChange > 0 ? '+' : ''}${stats.volatilityChange}%`, color: 'text-red-600' },
+                  { label: 'Points Modified', value: `${stats.modifiedPoints} / ${crashData.length}`, color: 'text-blue-600' }
+                ].map((stat, i) => (
+                  <div key={i} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-4 rounded-xl shadow-sm transition-colors">
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 font-semibold">{stat.label}</div>
+                    <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
                   </div>
-                </div>
-                <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Max Deviation</div>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#dc3545' }}>
-                    {stats.maxPriceDiff}%
-                  </div>
-                </div>
-                <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Volume Change</div>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: parseFloat(stats.avgVolumeChange) >= 0 ? '#dc3545' : '#28a745' }}>
-                    {stats.avgVolumeChange > 0 ? '+' : ''}{stats.avgVolumeChange}%
-                  </div>
-                </div>
-                <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Volatility Change</div>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#dc3545' }}>
-                    {stats.volatilityChange > 0 ? '+' : ''}{stats.volatilityChange}%
-                  </div>
-                </div>
-                <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Points Modified</div>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#007bff' }}>
-                    {stats.modifiedPoints} / {crashData.length}
-                  </div>
-                </div>
+                ))}
               </div>
 
-              {/* Comparison Charts */}
-              <div style={{ marginBottom: '30px' }}>
-                <h3>Price Comparison</h3>
-                <ChartWithExplanation
-                  chartType="price_comparison"
-                  dataSummary={{ description: "Side-by-side comparison of original vs simulated crash data" }}
-                >
-                  <div className="chart-container" style={{ height: '400px', marginBottom: '20px' }}>
-                    <ComparisonChart originalData={originalData} crashData={crashData} />
-                  </div>
-                </ChartWithExplanation>
+              <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 w-fit">
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium dark:text-slate-200">
+                  <input type="checkbox" checked={showAnomalies} onChange={(e) => setShowAnomalies(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-blue-600" />
+                  Show Anomalies ({anomalies.length})
+                </label>
               </div>
 
-              {/* Side-by-side Charts */}
-              <div style={{ marginBottom: '30px' }}>
-                <h3>Detailed Analysis</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-                  <div className="chart-container" style={{ height: '350px' }}>
-                    <OhlcvChart data={originalData} title="Original Data" color="blue" />
-                  </div>
-                  <div className="chart-container" style={{ height: '350px' }}>
-                    <OhlcvChart data={crashData} title="Simulated Crash Data" color="red" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Advanced Visualizations */}
-              <div style={{ marginBottom: '30px' }}>
-                <h3>Advanced Metrics</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                  <ChartWithExplanation
-                    chartType="volatility_map"
-                    dataSummary={{ description: "Rolling volatility comparison showing volatility spikes during crash" }}
-                  >
-                    <div className="chart-container" style={{ height: '300px' }}>
-                      <VolatilityMap originalData={originalData} crashData={crashData} />
+              <div className="space-y-8">
+                <section>
+                  <h3 className="text-xl font-bold mb-4 dark:text-white">Price Comparison</h3>
+                  <ChartWithExplanation chartType="price_comparison" dataSummary={{ description: "Original vs simulated crash data" }}>
+                    <div className="h-[400px] bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
+                      <ComparisonChart originalData={originalData} crashData={crashData} anomalies={anomalies} anomalyDetails={anomalyDetails} showAnomalies={showAnomalies} />
                     </div>
                   </ChartWithExplanation>
-                  <ChartWithExplanation
-                    chartType="anomaly_timeline"
-                    dataSummary={{ description: "Timeline showing price and volume deviations from original data" }}
-                  >
-                    <div className="chart-container" style={{ height: '300px' }}>
-                      <AnomalyTimeline originalData={originalData} crashData={crashData} />
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-bold mb-4 dark:text-white">Detailed Analysis</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="h-[350px] bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
+                      <OhlcvChart data={originalData} title="Original Data" color="blue" />
                     </div>
-                  </ChartWithExplanation>
-                </div>
+                    <div className="h-[350px] bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
+                      <OhlcvChart data={crashData} title="Simulated Crash Data" color="red" anomalies={anomalies} anomalyDetails={anomalyDetails} showAnomalies={showAnomalies} />
+                    </div>
+                  </div>
+                  <ImpactCard impact={impact} />
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-bold mb-4 dark:text-white">Advanced Metrics</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <ChartWithExplanation chartType="volatility_map" dataSummary={{ description: "Rolling volatility comparison" }}>
+                      <div className="h-[300px] bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
+                        <VolatilityMap originalData={originalData} crashData={crashData} />
+                      </div>
+                    </ChartWithExplanation>
+                    <ChartWithExplanation chartType="anomaly_timeline" dataSummary={{ description: "Price and volume deviations" }}>
+                      <div className="h-[300px] bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-4">
+                        <AnomalyTimeline originalData={originalData} crashData={crashData} />
+                      </div>
+                    </ChartWithExplanation>
+                  </div>
+                </section>
               </div>
 
-              <button
-                className="button"
-                onClick={onNext}
-                style={{ marginTop: '20px', width: '100%' }}
-              >
+              <button className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-4 rounded-xl transition-transform hover:scale-[1.01] active:scale-[0.99] mt-8" onClick={onNext}>
                 Continue to Algorithm Editor →
               </button>
             </>
           )}
 
           {!crashData && (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#666' }}>
-              <div style={{ fontSize: '48px', marginBottom: '20px' }}>📊</div>
-              <h3>Configure and Run Simulation</h3>
-              <p>Select crash types and adjust parameters, then click "Run Simulation" to see the results</p>
+            <div className="text-center py-24 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl">
+              <div className="text-6xl mb-6 opacity-20">📈</div>
+              <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">Configure and Run Simulation</h3>
+              <p className="text-slate-500 dark:text-slate-400">Select crash types and adjust parameters, then click "Run Simulation" to see the results</p>
             </div>
           )}
         </div>

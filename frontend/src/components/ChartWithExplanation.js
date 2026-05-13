@@ -58,14 +58,12 @@ function ChartWithExplanation({ chartType, children, dataSummary }) {
         <div style={{
           marginTop: '15px',
           padding: '15px',
-          backgroundColor: '#f8f9fa',
           borderRadius: '6px',
-          border: '1px solid #dee2e6'
-        }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
-            🤖 AI Explanation
+        }} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors">
+          <div style={{ fontWeight: 'bold', marginBottom: '8px' }} className="text-slate-800 dark:text-white">
+            [AI] AI Explanation
           </div>
-          <div style={{ fontSize: '14px', lineHeight: '1.6', color: '#555' }}>
+          <div style={{ fontSize: '14px', lineHeight: '1.6' }} className="text-slate-600 dark:text-slate-300">
             {explanation}
           </div>
         </div>
@@ -75,4 +73,3 @@ function ChartWithExplanation({ chartType, children, dataSummary }) {
 }
 
 export default ChartWithExplanation;
-

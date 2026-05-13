@@ -62,6 +62,14 @@ def simulate_spoofing(
     # Use custom parameters or calculate from intensity
     vol_mult = volume_multiplier if volume_multiplier is not None else (2.0 + 0.5 * intensity)
     price_drift = price_change_pct if price_change_pct is not None else (0.01 + 0.015 * intensity)
+    
+    # Scale by intensity if custom parameters were provided (base 5)
+    intensity_scale = intensity / 5.0
+    if volume_multiplier is not None:
+        vol_mult *= intensity_scale
+    if price_change_pct is not None:
+        price_drift *= intensity_scale
+        
     window_len = num_points if num_points is not None else random.choice([3, 4, 5])
     window_len = min(window_len, len(df))
     
@@ -119,6 +127,14 @@ def simulate_quote_stuffing(
     # Use custom parameters or calculate from intensity
     deviation = max_deviation_pct if max_deviation_pct is not None else (0.02 + 0.03 * intensity)
     vol_shock = volume_shock_multiplier if volume_shock_multiplier is not None else (2.0 + 0.3 * intensity)
+    
+    # Scale by intensity if custom parameters were provided
+    intensity_scale = intensity / 5.0
+    if max_deviation_pct is not None:
+        deviation *= intensity_scale
+    if volume_shock_multiplier is not None:
+        vol_shock *= intensity_scale
+        
     count = num_points if num_points is not None else random.randint(5, min(10, len(df)))
     count = min(count, len(df))
     
@@ -173,6 +189,14 @@ def simulate_flash_crash(
     # Use custom parameters or calculate from intensity
     drop_pct = price_drop_pct if price_drop_pct is not None else random.uniform(0.05 * intensity, 0.15 * intensity)
     vol_spike = volatility_spike if volatility_spike is not None else (2.0 + 0.8 * intensity)
+    
+    # Scale by intensity if custom parameters were provided
+    intensity_scale = intensity / 5.0
+    if price_drop_pct is not None:
+        drop_pct *= intensity_scale
+    if volatility_spike is not None:
+        vol_spike *= intensity_scale
+        
     crash_days = crash_duration if crash_duration is not None else random.randint(1, min(3, len(df) // 3))
     recovery_days = recovery_duration if recovery_duration is not None else random.randint(2, min(7, len(df) // 3))
     

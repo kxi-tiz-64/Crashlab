@@ -65,7 +65,7 @@ function ParameterExplanation({ parameterName, value, attackType, onSeverityChan
         onClick={() => setExpanded(!expanded)}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>ℹ️</span>
+          <span>Info:</span>
           <strong>Why this parameter matters</strong>
         </div>
         <div style={{

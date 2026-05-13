@@ -128,13 +128,36 @@ npm start
 
 The frontend will start on `http://localhost:3000`
 
+## One-Click Deployment (Render)
+
+This repo now includes:
+- `Dockerfile` to build frontend and serve it from Flask in one service.
+- `render.yaml` for Render one-click deployment.
+
+Steps:
+1. Create a new Render Blueprint deployment from this repository.
+2. Render detects `render.yaml` and builds using `Dockerfile`.
+3. Ensure environment variables:
+   - `FLASK_ENV=production`
+   - `REACT_APP_API_URL` set to empty string (`""`) for same-service API routing.
+
 ### Environment Variables
 
 **Backend:**
 - `PORT` - Flask server port (default: 5000)
+- `GEMINI_API_KEY` - (Optional) Google Gemini API key for LLM-powered insights. Obtain a free key from [Google AI Studio](https://aistudio.google.com/apikey).
+- `OPENAI_API_KEY` - (Legacy) Optional OpenAI key for fallback analysis.
 
 **Frontend:**
 - `REACT_APP_API_URL` - Backend API URL (default: http://localhost:5000)
+
+## AI Smart Advisor
+
+The platform features an LLM-powered Smart Advisor that analyzes simulation results and suggests strategies. 
+
+- **LLM-Powered Mode**: To enable advanced insights using Gemini 2.0 Flash, set the `GEMINI_API_KEY` environment variable.
+- **Rule-Based Fallback**: If no API key is provided, the advisor automatically falls back to deterministic expert rules.
+
 
 ## Usage Guide
 

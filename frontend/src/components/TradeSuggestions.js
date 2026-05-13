@@ -7,14 +7,13 @@ function TradeSuggestions({ suggestions, onSelectStrategy }) {
 
   return (
     <div style={{
-      backgroundColor: '#fff',
       borderRadius: '8px',
       padding: '20px',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
       marginBottom: '20px'
-    }}>
-      <h4 style={{ marginBottom: '15px', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span>💡</span> AI Strategy Recommendations
+    }} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 transition-colors">
+      <h4 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }} className="text-slate-800 dark:text-white">
+        <span>Tip:</span> AI Strategy Recommendations
       </h4>
       
       <div style={{ display: 'grid', gap: '12px' }}>
@@ -23,20 +22,21 @@ function TradeSuggestions({ suggestions, onSelectStrategy }) {
             key={idx}
             style={{
               padding: '15px',
-              backgroundColor: idx === 0 ? '#e7f3ff' : '#f8f9fa',
-              border: idx === 0 ? '2px solid #007bff' : '1px solid #dee2e6',
               borderRadius: '6px',
               cursor: 'pointer',
               transition: 'all 0.2s'
             }}
+            className={idx === 0 ? 
+              "bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500" : 
+              "bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700"}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = '#007bff';
-              e.currentTarget.style.backgroundColor = '#e7f3ff';
+              if (idx !== 0) e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.05)';
             }}
             onMouseLeave={(e) => {
               if (idx !== 0) {
-                e.currentTarget.style.borderColor = '#dee2e6';
-                e.currentTarget.style.backgroundColor = '#f8f9fa';
+                e.currentTarget.style.borderColor = '';
+                e.currentTarget.style.backgroundColor = '';
               }
             }}
             onClick={() => onSelectStrategy && onSelectStrategy(suggestion.strategy)}
@@ -56,7 +56,7 @@ function TradeSuggestions({ suggestions, onSelectStrategy }) {
                 {suggestion.confidence} Confidence
               </div>
             </div>
-            <div style={{ fontSize: '13px', color: '#555', lineHeight: '1.5' }}>
+            <div style={{ fontSize: '13px', lineHeight: '1.5' }} className="text-slate-600 dark:text-slate-300">
               {suggestion.reason}
             </div>
             {idx === 0 && (
@@ -66,7 +66,7 @@ function TradeSuggestions({ suggestions, onSelectStrategy }) {
                 color: '#007bff',
                 fontStyle: 'italic'
               }}>
-                ← Recommended (Click to load)
+                Recommended (Click to load)
               </div>
             )}
           </div>
@@ -77,4 +77,3 @@ function TradeSuggestions({ suggestions, onSelectStrategy }) {
 }
 
 export default TradeSuggestions;
-

@@ -12,6 +12,11 @@ Before starting, ensure you have:
 
 ### 1. Backend Setup
 
+cd "D:\LY PROJECT - Copy\Crashlab\backend"
+.\venv\Scripts\activate
+python app.py
+
+
 ```bash
 # Navigate to backend directory
 cd backend
@@ -43,6 +48,10 @@ python app.py
 The backend should now be running on `http://localhost:5000`
 
 ### 2. Frontend Setup
+
+cd "D:\LY PROJECT - Copy\Crashlab\frontend"
+npm.cmd start
+
 
 Open a new terminal window:
 

@@ -2,8 +2,10 @@ import React from 'react';
 import apiClient from '../api/apiClient';
 import OhlcvChart from '../components/OhlcvChart';
 import EquityCurveChart from '../components/EquityCurveChart';
+import DrawdownChart from '../components/DrawdownChart';
+import TradeHistogram from '../components/TradeHistogram';
 
-function BacktestResultsPage({ backtestResults, ohlcvData, signals }) {
+function BacktestResultsPage({ backtestResults, ohlcvData, signals, crashAnalysis = null }) {
   const handleDownloadCSV = async () => {
     try {
       const response = await apiClient.get('/download_trades', {
@@ -33,14 +35,14 @@ function BacktestResultsPage({ backtestResults, ohlcvData, signals }) {
       <div className="metrics-grid" style={{ marginTop: '30px' }}>
         <div className="metric-card">
           <div className="metric-label">Final Capital</div>
-          <div className="metric-value">₹{backtestResults.metrics.final_capital.toLocaleString()}</div>
+          <div className="metric-value">Rs.{backtestResults.metrics.final_capital.toLocaleString()}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Total PnL</div>
           <div className="metric-value" style={{
             color: backtestResults.metrics.total_pnl >= 0 ? '#28a745' : '#dc3545'
           }}>
-            ₹{backtestResults.metrics.total_pnl.toLocaleString()}
+            Rs.{backtestResults.metrics.total_pnl.toLocaleString()}
           </div>
         </div>
         <div className="metric-card">
@@ -57,13 +59,21 @@ function BacktestResultsPage({ backtestResults, ohlcvData, signals }) {
             {(backtestResults.metrics.max_drawdown * 100).toFixed(2)}%
           </div>
         </div>
+        <div className="metric-card" title="Daily Sharpe = mean daily equity return / daily equity return volatility">
+          <div className="metric-label">Daily Sharpe</div>
+          <div className="metric-value" style={{
+            color: Number(backtestResults.metrics.sharpe_ratio || 0) >= 0 ? '#28a745' : '#dc3545'
+          }}>
+            {Number(backtestResults.metrics.sharpe_ratio || 0).toFixed(2)}
+          </div>
+        </div>
         <div className="metric-card">
           <div className="metric-label">Average Win</div>
-          <div className="metric-value">₹{backtestResults.metrics.avg_win.toLocaleString()}</div>
+          <div className="metric-value">Rs.{backtestResults.metrics.avg_win.toLocaleString()}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Average Loss</div>
-          <div className="metric-value">₹{backtestResults.metrics.avg_loss.toLocaleString()}</div>
+          <div className="metric-value">Rs.{backtestResults.metrics.avg_loss.toLocaleString()}</div>
         </div>
       </div>
 
@@ -74,6 +84,8 @@ function BacktestResultsPage({ backtestResults, ohlcvData, signals }) {
             data={ohlcvData}
             signals={signals}
             title="Trading Activity"
+            anomalies={crashAnalysis?.anomalies || []}
+            anomalyDetails={crashAnalysis?.anomaly_details || []}
           />
         </div>
       </div>
@@ -82,6 +94,21 @@ function BacktestResultsPage({ backtestResults, ohlcvData, signals }) {
         <h3>Equity Curve</h3>
         <div className="chart-container">
           <EquityCurveChart data={backtestResults.equity_curve} />
+        </div>
+      </div>
+
+      <div style={{ marginTop: '40px' }}>
+        <h3>Performance Breakdown</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          <div className="chart-container" style={{ height: '320px' }}>
+            <DrawdownChart
+              equityCurve={backtestResults.equity_curve}
+              drawdownCurve={backtestResults.drawdown_curve}
+            />
+          </div>
+          <div className="chart-container" style={{ height: '320px' }}>
+            <TradeHistogram distribution={backtestResults.trade_pnl_distribution} />
+          </div>
         </div>
       </div>
 
@@ -107,14 +134,14 @@ function BacktestResultsPage({ backtestResults, ohlcvData, signals }) {
                   <td>{trade.date}</td>
                   <td>{trade.type}</td>
                   <td>{trade.qty}</td>
-                  <td>₹{trade.price.toFixed(2)}</td>
-                  <td>₹{trade.slippage.toFixed(2)}</td>
-                  <td>₹{trade.fee.toFixed(2)}</td>
-                  <td>₹{trade.capital.toLocaleString()}</td>
+                  <td>Rs.{trade.price.toFixed(2)}</td>
+                  <td>Rs.{trade.slippage.toFixed(2)}</td>
+                  <td>Rs.{trade.fee.toFixed(2)}</td>
+                  <td>Rs.{trade.capital.toLocaleString()}</td>
                   <td style={{
                     color: trade.pnl >= 0 ? '#28a745' : '#dc3545'
                   }}>
-                    ₹{trade.pnl.toFixed(2)}
+                    Rs.{trade.pnl.toFixed(2)}
                   </td>
                 </tr>
               ))}

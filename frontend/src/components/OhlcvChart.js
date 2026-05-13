@@ -23,7 +23,15 @@ ChartJS.register(
   Legend
 );
 
-function OhlcvChart({ data, signals = null, title = 'OHLCV Chart', color = 'blue' }) {
+function OhlcvChart({
+  data,
+  signals = null,
+  title = 'OHLCV Chart',
+  color = 'blue',
+  anomalies = [],
+  anomalyDetails = [],
+  showAnomalies = true,
+}) {
   if (!data || data.length === 0) {
     return <div className="loading">No data available</div>;
   }
@@ -38,10 +46,24 @@ function OhlcvChart({ data, signals = null, title = 'OHLCV Chart', color = 'blue
         label: 'Close Price',
         data: closes,
         borderColor: color === 'red' ? 'rgb(220, 53, 69)' : 'rgb(0, 123, 255)',
-        backgroundColor: color === 'red' ? 'rgba(220, 53, 69, 0.1)' : 'rgba(0, 123, 255, 0.1)',
+        backgroundColor: (ctx) => {
+          const chart = ctx.chart;
+          const area = chart.chartArea;
+          if (!area) return color === 'red' ? 'rgba(220, 53, 69, 0.15)' : 'rgba(0, 123, 255, 0.15)';
+          const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+          if (color === 'red') {
+            gradient.addColorStop(0, 'rgba(220, 53, 69, 0.3)');
+            gradient.addColorStop(1, 'rgba(220, 53, 69, 0.02)');
+          } else {
+            gradient.addColorStop(0, 'rgba(0, 123, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(0, 123, 255, 0.02)');
+          }
+          return gradient;
+        },
         borderWidth: 2,
         pointRadius: 0,
         tension: 0.1,
+        fill: true,
       },
     ],
   };
@@ -96,6 +118,28 @@ function OhlcvChart({ data, signals = null, title = 'OHLCV Chart', color = 'blue
     }
   }
 
+  if (showAnomalies && anomalies && anomalies.length > 0) {
+    const anomalySet = new Set(anomalies);
+    const anomalyData = new Array(dates.length).fill(null);
+    anomalies.forEach(idx => {
+      if (idx >= 0 && idx < data.length) {
+        anomalyData[idx] = data[idx].close;
+      }
+    });
+
+    chartData.datasets.push({
+      label: 'Anomalies',
+      data: anomalyData,
+      borderColor: 'rgb(220, 53, 69)',
+      backgroundColor: 'red',
+      pointRadius: anomalyData.map((_, idx) => anomalySet.has(idx) ? 5 : 0),
+      pointHoverRadius: 8,
+      pointStyle: 'circle',
+      showLine: false,
+      anomalyDetails,
+    });
+  }
+
   const options = {
     responsive: true,
     maintainAspectRatio: false,
@@ -110,6 +154,22 @@ function OhlcvChart({ data, signals = null, title = 'OHLCV Chart', color = 'blue
       tooltip: {
         mode: 'index',
         intersect: false,
+        callbacks: {
+          label: function(context) {
+            if (context.dataset.label === 'Anomalies') {
+              const detail = (context.dataset.anomalyDetails || []).find(item => item.index === context.dataIndex);
+              if (!detail) {
+                return `Anomaly at ${dates[context.dataIndex]}`;
+              }
+              return [
+                `Anomaly: ${detail.reason}`,
+                `Return Z: ${Number(detail.return_z).toFixed(2)}`,
+                `Volume Z: ${Number(detail.volume_z).toFixed(2)}`,
+              ];
+            }
+            return `${context.dataset.label}: Rs.${Number(context.parsed.y).toFixed(2)}`;
+          },
+        },
       },
     },
     scales: {
@@ -128,7 +188,7 @@ function OhlcvChart({ data, signals = null, title = 'OHLCV Chart', color = 'blue
         display: true,
         title: {
           display: true,
-          text: 'Price (₹)',
+          text: 'Price (Rs.)',
         },
       },
     },
@@ -137,6 +197,7 @@ function OhlcvChart({ data, signals = null, title = 'OHLCV Chart', color = 'blue
       axis: 'x',
       intersect: false,
     },
+    animation: { duration: 800, easing: 'easeOutQuart' },
   };
 
   return (
