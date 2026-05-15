@@ -16,6 +16,7 @@ import apiClient from '../api/apiClient';
 import { DEFAULT_TEMPLATE_CODE } from '../components/TemplatePanel';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
+import { Switch } from '../components/ui/switch';
 import { useAuth } from '../context/AuthContext';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Title);
@@ -34,6 +35,17 @@ function RobustnessTestPage() {
   const [result, setResult] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
 
+  const [expertMode, setExpertMode] = useState(false);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+
+  const handleToggleExpertMode = (checked) => {
+    if (checked) {
+      setShowWarningModal(true);
+    } else {
+      setExpertMode(false);
+    }
+  };
+
   const runTest = async () => {
     if (intensities.length === 0) {
       setError('Please select at least one intensity');
@@ -49,6 +61,7 @@ function RobustnessTestPage() {
         years: isMax ? 'max' : years,
         intensities,
         initial_capital: 100000,
+        mode: expertMode ? 'expert' : 'safe',
       });
       if (response.data.error) {
         setError(response.data.message || 'Failed to run robustness test');
@@ -112,6 +125,19 @@ function RobustnessTestPage() {
 
   return (
     <Card className="page">
+      {showWarningModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', maxWidth: '500px' }}>
+            <h3 style={{ color: '#dc3545', marginTop: 0 }}>⚠️ Expert Mode – Use at your own risk</h3>
+            <p>Expert Mode allows full Python execution (file access, network, etc.). Only enable if you trust the code. Resilio is not responsible for any damage.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+              <button className="button" style={{ backgroundColor: '#6c757d' }} onClick={() => setShowWarningModal(false)}>Cancel</button>
+              <button className="button" style={{ backgroundColor: '#dc3545' }} onClick={() => { setExpertMode(true); setShowWarningModal(false); }}>I understand, enable Expert Mode</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h2>Robustness Test</h2>
       <p>Stress-test your strategy across multiple crash intensities on historical data.</p>
       
@@ -195,9 +221,15 @@ function RobustnessTestPage() {
         />
       </div>
 
-      <Button className="button" onClick={runTest} disabled={running} style={{ width: '100%' }}>
-        {running ? 'Running Scenarios...' : 'Start Robustness Test'}
-      </Button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} title="Full Python – no sandbox">
+          <span style={{ fontSize: '14px', fontWeight: 'bold', color: expertMode ? '#dc3545' : '#666' }}>Expert Mode</span>
+          <Switch checked={expertMode} onCheckedChange={handleToggleExpertMode} />
+        </div>
+        <Button className="button" onClick={runTest} disabled={running} style={{ flex: 1 }}>
+          {running ? 'Running Scenarios...' : 'Start Robustness Test'}
+        </Button>
+      </div>
       {error && <div className="error-message" style={{ marginTop: '10px' }}>{error}</div>}
 
       {result && (

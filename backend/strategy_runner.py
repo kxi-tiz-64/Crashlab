@@ -5,6 +5,8 @@ The original algo_sandbox.py remains unchanged; this module mirrors its sandbox
 settings while exposing the full OHLCV list required by the PRD templates.
 """
 import time
+import multiprocessing
+import traceback
 from typing import Dict, List, Optional
 
 from RestrictedPython import compile_restricted, safe_globals
@@ -49,6 +51,57 @@ def create_extended_safe_globals():
     safe_globals_dict["_getiter_"] = lambda it: it
     safe_globals_dict["_getitem_"] = lambda obj, key: obj[key]
     return safe_globals_dict
+
+
+def _buy(
+    signals: List,
+    index: int,
+    qty: int,
+    order_type: str,
+    limit_price: Optional[float],
+    position: PositionView,
+    row: Dict,
+):
+    if qty <= 0:
+        return
+    fill_qty = int(qty)
+    signals.append({
+        "index": index,
+        "action": "BUY",
+        "qty": fill_qty,
+        "order_type": order_type or "market",
+        "limit_price": limit_price,
+    })
+    price = float(row["close"])
+    total_qty = position.qty + fill_qty
+    if total_qty > 0:
+        position.avg_price = (
+            (position.avg_price * position.qty) + (price * fill_qty)
+        ) / total_qty
+    position.qty = total_qty
+
+
+def _sell(
+    signals: List,
+    index: int,
+    qty: int,
+    order_type: str,
+    limit_price: Optional[float],
+    position: PositionView,
+):
+    if qty <= 0 or position.qty <= 0:
+        return
+    fill_qty = min(int(qty), position.qty)
+    signals.append({
+        "index": index,
+        "action": "SELL",
+        "qty": fill_qty,
+        "order_type": order_type or "market",
+        "limit_price": limit_price,
+    })
+    position.qty -= fill_qty
+    if position.qty == 0:
+        position.avg_price = 0.0
 
 
 def execute_strategy_extended(
@@ -120,52 +173,71 @@ def execute_strategy_extended(
     return {"signals": signals}
 
 
-def _buy(
-    signals: List,
-    index: int,
-    qty: int,
-    order_type: str,
-    limit_price: Optional[float],
-    position: PositionView,
-    row: Dict,
-):
-    if qty <= 0:
+def _expert_worker(code: str, ohlcv_data: List[Dict], queue: multiprocessing.Queue):
+    """Worker function for executing expert mode python code in isolation."""
+    signals = []
+    position = PositionView()
+    
+    try:
+        byte_code = compile(code, "<inline>", "exec")
+    except SyntaxError as exc:
+        queue.put({"error": True, "message": f"SyntaxError: {str(exc)}"})
         return
-    fill_qty = int(qty)
-    signals.append({
-        "index": index,
-        "action": "BUY",
-        "qty": fill_qty,
-        "order_type": order_type or "market",
-        "limit_price": limit_price,
-    })
-    price = float(row["close"])
-    total_qty = position.qty + fill_qty
-    if total_qty > 0:
-        position.avg_price = (
-            (position.avg_price * position.qty) + (price * fill_qty)
-        ) / total_qty
-    position.qty = total_qty
-
-
-def _sell(
-    signals: List,
-    index: int,
-    qty: int,
-    order_type: str,
-    limit_price: Optional[float],
-    position: PositionView,
-):
-    if qty <= 0 or position.qty <= 0:
+    except Exception as exc:
+        queue.put({"error": True, "message": f"Compilation error: {str(exc)}"})
         return
-    fill_qty = min(int(qty), position.qty)
-    signals.append({
-        "index": index,
-        "action": "SELL",
-        "qty": fill_qty,
-        "order_type": order_type or "market",
-        "limit_price": limit_price,
-    })
-    position.qty -= fill_qty
-    if position.qty == 0:
-        position.avg_price = 0.0
+        
+    global_env = {"__builtins__": __builtins__}
+    
+    for index, row in enumerate(ohlcv_data):
+        def make_buy_func(idx, current_row):
+            def buy_func(qty=1, order_type="market", limit_price=None):
+                _buy(signals, idx, qty, order_type, limit_price, position, current_row)
+            return buy_func
+
+        def make_sell_func(idx):
+            def sell_func(qty=1, order_type="market", limit_price=None):
+                _sell(signals, idx, qty, order_type, limit_price, position)
+            return sell_func
+
+        local_env = {
+            "row": row,
+            "index": index,
+            "ohlcv": ohlcv_data,
+            "current_price": float(row["close"]),
+            "position": position,
+            "buy": make_buy_func(index, row),
+            "sell": make_sell_func(index),
+        }
+        
+        exec_env = {**global_env, **local_env}
+        
+        try:
+            exec(byte_code, exec_env, local_env)
+        except Exception as exc:
+            queue.put({
+                "error": True,
+                "message": f"Execution error at row {index}: {str(exc)}\n{traceback.format_exc()}"
+            })
+            return
+            
+    queue.put({"signals": signals})
+
+def execute_strategy_expert(code: str, ohlcv_data: List[Dict], timeout_seconds: float = 5.0) -> Dict:
+    """Execute strategy using full Python execution via multiprocessing."""
+    q = multiprocessing.Queue()
+    p = multiprocessing.Process(target=_expert_worker, args=(code, ohlcv_data, q))
+    p.start()
+    p.join(timeout_seconds)
+    
+    if p.is_alive():
+        p.terminate()
+        p.join()
+        return {"error": True, "message": f"Expert execution timeout: exceeded {timeout_seconds}s"}
+    
+    try:
+        return q.get_nowait()
+    except Exception:
+        if p.exitcode != 0:
+            return {"error": True, "message": f"Process crashed with exit code {p.exitcode}"}
+        return {"error": True, "message": "No result returned from expert process"}

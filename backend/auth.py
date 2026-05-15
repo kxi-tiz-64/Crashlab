@@ -6,12 +6,13 @@ from flask import request, jsonify
 
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-secret-change-me")
 
-def create_token(user_id):
+def create_token(user_id, email=None):
     """
     Creates a JWT token for a user_id that expires in 7 days.
     """
     payload = {
         'user_id': user_id,
+        'email': email,
         'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7),
         'iat': datetime.datetime.utcnow()
     }
@@ -45,8 +46,9 @@ def login_required(f):
         if not payload:
             return jsonify({'error': True, 'message': 'Token is invalid or expired'}), 401
         
-        # Add user_id to request object for easy access in endpoints
+        # Add user_id and email to request object for easy access in endpoints
         request.user_id = payload.get('user_id')
+        request.email = payload.get('email')
         return f(*args, **kwargs)
     
     return decorated_function

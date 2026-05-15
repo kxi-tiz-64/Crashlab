@@ -1,10 +1,32 @@
 import React from 'react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { useAuth } from '../context/AuthContext';
 
 function HomePage({ navigate }) {
+  const { user, logout } = useAuth();
+
+  const handleAuthNav = (mode) => {
+    window.location.hash = `#/login?mode=${mode}`;
+    if (navigate) navigate(`login?mode=${mode}`);
+  };
+
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen relative">
+      <div className="absolute top-4 right-4 z-50 flex gap-2">
+        {user ? (
+          <div className="flex items-center gap-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur p-2 rounded-full shadow-md border border-slate-200 dark:border-slate-800">
+            <span className="text-sm font-medium px-2 text-slate-700 dark:text-slate-200">{user.email}</span>
+            <Button variant="outline" size="sm" onClick={logout} className="rounded-full">Logout</Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur p-2 rounded-full shadow-md border border-slate-200 dark:border-slate-800">
+            <Button variant="outline" size="sm" onClick={() => handleAuthNav('signin')} className="rounded-full">Sign In</Button>
+            <Button size="sm" onClick={() => handleAuthNav('signup')} className="rounded-full">Sign Up</Button>
+          </div>
+        )}
+      </div>
+
       {/* Hero Section */}
       <section className="py-20 text-center relative overflow-hidden">
         {/* Subtle background pattern */}

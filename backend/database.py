@@ -19,7 +19,8 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        trusted INTEGER DEFAULT 0
     )
     ''')
     
@@ -34,6 +35,27 @@ def init_db():
     )
     ''')
     
+    # Simple migration for existing databases
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN trusted INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass # Column already exists
+    
+    conn.commit()
+    conn.close()
+
+def is_user_trusted(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT trusted FROM users WHERE id = ?', (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row is not None and row['trusted'] == 1
+
+def set_user_trusted(user_id, trusted=1):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET trusted = ? WHERE id = ?', (trusted, user_id))
     conn.commit()
     conn.close()
 

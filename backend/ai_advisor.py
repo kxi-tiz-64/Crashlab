@@ -180,13 +180,52 @@ def suggest_strategy(attack_config: Dict, metrics: Dict) -> Dict[str, Any]:
         suggestions.append({"strategy": "mean_reversion", "reason": "Effective for price stabilization", "confidence": "Medium"})
     return {"suggestions": suggestions, "primary": suggestions[0] if suggestions else None}
 
+chart_explanation_cache = {}
+
 def explain_chart(chart_type: str, data_summary: Dict) -> str:
+    cache_key = f"{chart_type}_{json.dumps(data_summary, sort_keys=True)}"
+    if cache_key in chart_explanation_cache:
+        return chart_explanation_cache[cache_key]
+
     client = _gemini_client()
     if client:
         try:
-            prompt = f"Explain what a {chart_type} chart shows for financial data: {data_summary.get('description', '')}. Keep it very brief."
-            resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-            return resp.text.strip()
-        except Exception:
-            pass
-    return f"This {chart_type} chart visualizes key market trends and anomalies."
+            prompt = f"Explain what a {chart_type} chart shows for financial data: {json.dumps(data_summary)}. Keep it very brief and data-driven."
+            resp = client.models.generate_content(
+                model="gemini-2.0-flash", 
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.3)
+            )
+            explanation = resp.text.strip()
+            chart_explanation_cache[cache_key] = explanation
+            return explanation
+        except Exception as e:
+            print(f"[AI Advisor] Gemini explain_chart failed: {e}")
+
+    # Data-driven fallback logic
+    if chart_type == "price_comparison":
+        dev = data_summary.get("max_price_deviation", 0)
+        vol = data_summary.get("volatility_change_pct", 0)
+        anom = data_summary.get("anomaly_count", 0)
+        fallback = f"Price deviation reached {dev:.2f}%, and volatility shifted by {vol:.2f}%. A total of {anom} anomalies were detected."
+    elif chart_type == "volatility_map":
+        orig_vol = data_summary.get("original_volatility", 0)
+        crash_vol = data_summary.get("crash_volatility", 0)
+        change = ((crash_vol - orig_vol) / orig_vol * 100) if orig_vol else 0
+        fallback = f"Original volatility was {orig_vol:.2f}%, which shifted to {crash_vol:.2f}% during the manipulation (a {change:.2f}% change)."
+    elif chart_type == "anomaly_timeline":
+        anom = data_summary.get("anomaly_count", 0)
+        dates = data_summary.get("dates", [])
+        if dates and isinstance(dates, list) and len(dates) > 0:
+            fallback = f"The timeline tracks {anom} anomalies, with notable occurrences around {dates[0]} to {dates[-1]}."
+        else:
+            fallback = f"The timeline tracks a total of {anom} anomalies detected across the simulation period."
+    elif chart_type == "drawdown_curve":
+        max_dd = data_summary.get("max_drawdown", 0)
+        dd_date = data_summary.get("drawdown_date", "an unknown date")
+        fallback = f"The worst drawdown was {max_dd:.2f}%, which occurred around {dd_date}."
+    else:
+        fallback = f"This {chart_type} chart visualizes key trends based on the simulation data, highlighting deviations from baseline behavior."
+
+    chart_explanation_cache[cache_key] = fallback
+    return fallback

@@ -4,6 +4,7 @@ import apiClient from '../api/apiClient';
 import OhlcvChart from '../components/OhlcvChart';
 import EquityCurveChart from '../components/EquityCurveChart';
 import TemplatePanel, { DEFAULT_TEMPLATE_CODE, DEFAULT_TEMPLATE_KEY, STRATEGY_TEMPLATES } from '../components/TemplatePanel';
+import { Switch } from '../components/ui/switch';
 
 
 
@@ -16,6 +17,17 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
   const [backtestResults, setBacktestResults] = useState(null);
   const [selectedStrategy, setSelectedStrategy] = useState(DEFAULT_TEMPLATE_KEY);
   const [showRecommendations, setShowRecommendations] = useState(true);
+  
+  const [expertMode, setExpertMode] = useState(false);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+
+  const handleToggleExpertMode = (checked) => {
+    if (checked) {
+      setShowWarningModal(true);
+    } else {
+      setExpertMode(false);
+    }
+  };
 
   const handleLoadTemplate = (templateKey) => {
     const template = STRATEGY_TEMPLATES[templateKey];
@@ -35,6 +47,7 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
       const response = await apiClient.post('/run_algo', {
         code: code,
         ohlcv: ohlcvData,
+        mode: expertMode ? 'expert' : 'safe'
       });
 
       if (response.data.error) {
@@ -103,6 +116,20 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
 
   return (
     <div className="page">
+      {showWarningModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', maxWidth: '500px' }}>
+            <h3 style={{ color: '#dc3545', marginTop: 0 }}>⚠️ Expert Mode – Use at your own risk</h3>
+            <p>Full Python execution allows any code, including file system access, network calls, etc. Only enable if you trust the code.</p>
+            <p>Resilio is not responsible for any damage.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+              <button className="button" style={{ backgroundColor: '#6c757d' }} onClick={() => setShowWarningModal(false)}>Cancel</button>
+              <button className="button" style={{ backgroundColor: '#dc3545' }} onClick={() => { setExpertMode(true); setShowWarningModal(false); }}>I understand, enable Expert Mode</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h2>Algorithm Editor & Backtesting Lab</h2>
@@ -176,11 +203,17 @@ function AlgoEditorPage({ ohlcvData, onSignalsGenerated, onBacktestComplete, onN
 
         {/* Main Editor Area */}
         <div>
-          <div style={{ marginBottom: '20px' }}>
-            <h3>Strategy Code</h3>
-            <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-              Write your trading algorithm in Python. Available variables: <code>row</code>, <code>index</code>, <code>ohlcv</code>, <code>current_price</code>, <code>position</code>, <code>buy()</code>, <code>sell()</code>
-            </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h3 style={{ margin: 0 }}>Strategy Code</h3>
+              <p style={{ fontSize: '14px', color: '#666', marginBottom: 0, marginTop: '10px' }}>
+                Write your trading algorithm in Python. Available variables: <code>row</code>, <code>index</code>, <code>ohlcv</code>, <code>current_price</code>, <code>position</code>, <code>buy()</code>, <code>sell()</code>
+              </p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} title="Full Python – no sandbox">
+              <span style={{ fontSize: '14px', fontWeight: 'bold', color: expertMode ? '#dc3545' : '#666' }}>Expert Mode</span>
+              <Switch checked={expertMode} onCheckedChange={handleToggleExpertMode} />
+            </div>
           </div>
 
           <TemplatePanel

@@ -18,7 +18,11 @@ from backtester import backtest
 from crash_simulator import simulate_crash
 from data_loader_extended import load_random_stock_for_period
 from perf_analytics import append_performance_analytics
-from strategy_runner import execute_strategy_extended
+from strategy_runner import execute_strategy_extended, execute_strategy_expert
+from database import is_user_trusted
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def _prepare_ohlcv_for_simulation(ohlcv: List[Dict]) -> List[Dict]:
@@ -85,7 +89,7 @@ def _calculate_scenario_metrics(equity_curve: List[Dict], max_drawdown: float) -
     return sharpe, sortino, calmar
 
 
-def _run_one_scenario(code: str, period: str, intensity: int, initial_capital: float, base_data: List[Dict]) -> Dict:
+def _run_one_scenario(code: str, period: str, intensity: int, initial_capital: float, base_data: List[Dict], mode: str = 'safe', user_id=None, email='unknown') -> Dict:
     if intensity <= 0:
         manipulated = base_data
     else:
@@ -98,7 +102,15 @@ def _run_one_scenario(code: str, period: str, intensity: int, initial_capital: f
             cumulative_damage=True,
         )
 
-    strategy_result = execute_strategy_extended(code, manipulated)
+    if mode == 'expert':
+        if not user_id or not is_user_trusted(user_id):
+            raise ValueError("Forbidden: Expert mode requires trusted user status")
+        code_hash = hashlib.md5(code.encode('utf-8')).hexdigest()
+        logger.info(f"EXPERT MODE EXECUTION (Robustness): User {email} (ID: {user_id}), Hash: {code_hash}, Intensity: {intensity}")
+        strategy_result = execute_strategy_expert(code, manipulated)
+    else:
+        strategy_result = execute_strategy_extended(code, manipulated)
+
     if strategy_result.get("error"):
         raise ValueError(strategy_result.get("message", "Strategy execution failed"))
 
@@ -199,7 +211,7 @@ def build_robustness_cache_key(code, name, years, intensities, capital):
     return hashlib.md5(raw.encode()).hexdigest()
 
 
-def run_robustness_test(code, strategy_name, years, intensities, initial_capital) -> dict:
+def run_robustness_test(code, strategy_name, years, intensities, initial_capital, mode='safe', user_id=None, email='unknown') -> dict:
     years_norm, intensities_norm = _normalize_inputs(years, intensities)
 
     payload = load_random_stock_for_period(years_norm)
@@ -213,7 +225,7 @@ def run_robustness_test(code, strategy_name, years, intensities, initial_capital
 
     def worker(combo):
         period, intensity = combo
-        return _run_one_scenario(code, period, intensity, float(initial_capital), base_data)
+        return _run_one_scenario(code, period, intensity, float(initial_capital), base_data, mode=mode, user_id=user_id, email=email)
 
     started = time.time()
     with ThreadPoolExecutor(max_workers=4) as executor:
